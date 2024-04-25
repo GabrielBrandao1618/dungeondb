@@ -5,7 +5,12 @@ mod value;
 #[cfg(test)]
 mod tests;
 
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{
+    collections::HashMap,
+    io,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use mem_table::MemTable;
 use rmp_serde::{from_read, to_vec};
@@ -44,6 +49,12 @@ pub struct Chest {
     mem_table: MemTable,
     flush_size: usize,
     general_index: GeneralIndex,
+}
+
+fn generate_sstable_name() -> String {
+    let current_time = SystemTime::now();
+    let elapsed = current_time.duration_since(UNIX_EPOCH).unwrap();
+    format!("{}", elapsed.as_millis())
 }
 
 impl Chest {
@@ -88,7 +99,7 @@ impl Chest {
     fn flush(&mut self) -> std::io::Result<()> {
         let flushed = self.mem_table.flush();
         let ss_table = SSTable::new(self.dir_path.clone(), flushed.into_iter().collect());
-        let file_name = cuid::cuid2();
+        let file_name = generate_sstable_name();
         ss_table.write(&file_name)?;
         for (key, _) in ss_table.index.table {
             self.general_index.insert(key, file_name.to_string());

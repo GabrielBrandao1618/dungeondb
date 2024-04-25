@@ -1,11 +1,8 @@
-use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::io;
-use std::io::BufReader;
-use std::io::Cursor;
-use std::io::Read;
-use std::io::Seek;
-use std::path::PathBuf;
+use std::{
+    collections::{BTreeMap, HashMap},
+    io::{self, BufReader, Cursor, Read, Seek},
+    path::PathBuf,
+};
 
 use crate::value::Value;
 
