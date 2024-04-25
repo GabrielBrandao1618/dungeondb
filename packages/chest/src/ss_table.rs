@@ -37,8 +37,8 @@ impl Index {
             table: BTreeMap::new(),
         }
     }
-    pub fn from_file(_file_path: PathBuf) -> Self {
-        let parsed_index: Self = from_read(std::fs::File::open(_file_path).unwrap()).unwrap();
+    pub fn from_file(file_path: PathBuf) -> Self {
+        let parsed_index: Self = from_read(std::fs::File::open(file_path).unwrap()).unwrap();
         parsed_index
     }
     pub fn insert(&mut self, key: String, segment: DocumentSegment) {
