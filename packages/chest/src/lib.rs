@@ -88,7 +88,7 @@ impl Chest {
         match self.mem_table.get(key) {
             None => match self.general_index.get(key) {
                 Some(found_file_name) => {
-                    let sstable = SSTable::from_file(self.dir_path.clone(), &found_file_name);
+                    let sstable = SSTable::from_file(self.dir_path.clone(), found_file_name);
                     sstable.get(key)
                 }
                 None => None,
@@ -98,11 +98,15 @@ impl Chest {
     }
     fn flush(&mut self) -> std::io::Result<()> {
         let flushed = self.mem_table.flush();
-        let ss_table = SSTable::new(self.dir_path.clone(), flushed.into_iter().collect());
         let file_name = generate_sstable_name();
-        ss_table.write(&file_name)?;
+        let ss_table = SSTable::new(
+            self.dir_path.clone(),
+            file_name,
+            flushed.into_iter().collect(),
+        );
         for (key, _) in ss_table.index.table {
-            self.general_index.insert(key, file_name.to_string());
+            self.general_index
+                .insert(key, ss_table.file_name.to_string());
         }
         Ok(())
     }

@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    io::{self, BufReader, Cursor, Read, Seek},
+    io::{self, BufReader, BufWriter, Read, Seek, Write},
     path::PathBuf,
 };
 
@@ -50,51 +50,44 @@ impl Index {
 }
 pub struct SSTable {
     pub index: Index,
-    pub content: Vec<u8>,
     pub base_dir: PathBuf,
+    pub file_name: String,
 }
 
 impl SSTable {
-    pub fn new(base_dir: PathBuf, table: HashMap<String, Value>) -> Self {
+    pub fn new(base_dir: PathBuf, file_name: String, table: HashMap<String, Value>) -> Self {
         let mut index = Index::new();
-        let mut content = Vec::new();
 
-        let mut current_offset = 0;
+        let full_data_file_path = base_dir.join(format!("{file_name}.chest"));
+        let mut w = BufWriter::new(std::fs::File::create(full_data_file_path).unwrap());
+
         for (key, value) in table {
-            let serialized = to_vec(&value).unwrap();
-            let serialized_length = serialized.len();
-            index.insert(key, (current_offset, serialized_length).into());
-            current_offset += serialized_length;
-            content = [content, serialized].concat();
+            let offset = w.stream_position().unwrap();
+            w.write_all(&to_vec(&value).unwrap()).unwrap();
+            let length = w.stream_position().unwrap() - offset;
+            index.insert(key, (offset as usize, length as usize).into());
         }
+        let full_index_file_path = base_dir.join(format!("{file_name}.index"));
+        std::fs::write(full_index_file_path, to_vec(&index).unwrap()).unwrap();
+
         Self {
             base_dir,
             index,
-            content,
+            file_name,
         }
     }
-    pub fn write(&self, file_name: &str) -> io::Result<()> {
-        let index_path = self.base_dir.join(format!("{file_name}.index"));
-        let data_path = self.base_dir.join(format!("{file_name}.chest"));
-
-        std::fs::write(index_path, to_vec(&self.index).unwrap())?;
-        std::fs::write(data_path, &self.content)?;
-
-        Ok(())
-    }
-    pub fn from_file(base_dir: PathBuf, file_name: &str) -> Self {
-        let data_file_path = base_dir.join(format!("{}.chest", file_name));
-        let data_file_content = std::fs::read(data_file_path).unwrap();
+    pub fn from_file(base_dir: PathBuf, file_name: String) -> Self {
         Self {
             index: Index::from_file(base_dir.join(format!("{}.index", file_name))),
-            content: data_file_content,
             base_dir,
+            file_name,
         }
     }
     pub fn get(&self, key: &str) -> Option<Value> {
         match self.index.get(key) {
             Some(segment) => {
-                let mut r = BufReader::new(Cursor::new(&self.content));
+                let data_file_path = self.base_dir.join(format!("{}.chest", self.file_name));
+                let mut r = BufReader::new(std::fs::File::open(data_file_path).unwrap());
                 r.seek(io::SeekFrom::Start(segment.offset as u64)).unwrap();
                 let mut buff = vec![0; segment.length];
                 r.read_exact(&mut buff).unwrap();
