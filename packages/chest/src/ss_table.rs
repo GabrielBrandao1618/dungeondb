@@ -1,10 +1,17 @@
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::io;
+use std::io::BufReader;
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Seek;
 use std::path::PathBuf;
 
 use crate::value::Value;
 
+use rmp_serde::decode::from_read;
 use rmp_serde::encode::to_vec;
+use rmp_serde::from_slice;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -21,29 +28,33 @@ impl From<(usize, usize)> for DocumentSegment {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Index {
-    table: HashMap<String, DocumentSegment>,
+pub struct Index {
+    pub table: BTreeMap<String, DocumentSegment>,
 }
 impl Index {
     pub fn new() -> Self {
         Self {
-            table: HashMap::new(),
+            table: BTreeMap::new(),
         }
     }
-    pub fn _from_file(_file_path: &str) -> Self {
-        Self {
-            table: HashMap::new(),
-        }
-        // TODO actually read the file
+    pub fn from_file(_file_path: PathBuf) -> Self {
+        let parsed_index: Self = from_read(std::fs::File::open(_file_path).unwrap()).unwrap();
+        parsed_index
     }
     pub fn insert(&mut self, key: String, segment: DocumentSegment) {
         self.table.insert(key, segment);
     }
+    pub fn get(&self, key: &str) -> Option<DocumentSegment> {
+        match self.table.get(key) {
+            Some(segment) => Some(segment.clone()),
+            None => None,
+        }
+    }
 }
 pub struct SSTable {
-    index: Index,
-    content: Vec<u8>,
-    base_dir: PathBuf,
+    pub index: Index,
+    pub content: Vec<u8>,
+    pub base_dir: PathBuf,
 }
 
 impl SSTable {
@@ -71,6 +82,30 @@ impl SSTable {
 
         std::fs::write(index_path, to_vec(&self.index).unwrap())?;
         std::fs::write(data_path, &self.content)?;
+
         Ok(())
+    }
+    pub fn from_file(base_dir: PathBuf, file_name: &str) -> Self {
+        let data_file_path = base_dir.join(format!("{}.chest", file_name));
+        println!("{}", data_file_path.display());
+        let data_file_content = std::fs::read(data_file_path).unwrap();
+        Self {
+            index: Index::from_file(base_dir.join(format!("{}.index", file_name))),
+            content: data_file_content,
+            base_dir,
+        }
+    }
+    pub fn get(&self, key: &str) -> Option<Value> {
+        match self.index.get(key) {
+            Some(segment) => {
+                let mut r = BufReader::new(Cursor::new(&self.content));
+                r.seek(io::SeekFrom::Start(segment.offset as u64)).unwrap();
+                let mut buff = vec![0; segment.length];
+                r.read_exact(&mut buff).unwrap();
+                let value: Value = from_slice(&buff).unwrap();
+                Some(value)
+            }
+            _ => None,
+        }
     }
 }

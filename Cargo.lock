@@ -86,7 +86,6 @@ name = "chest"
 version = "0.1.0"
 dependencies = [
  "cuid",
- "rmp",
  "rmp-serde",
  "serde",
 ]
