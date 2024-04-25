@@ -87,7 +87,6 @@ impl SSTable {
     }
     pub fn from_file(base_dir: PathBuf, file_name: &str) -> Self {
         let data_file_path = base_dir.join(format!("{}.chest", file_name));
-        println!("{}", data_file_path.display());
         let data_file_content = std::fs::read(data_file_path).unwrap();
         Self {
             index: Index::from_file(base_dir.join(format!("{}.index", file_name))),

@@ -5,29 +5,66 @@ mod value;
 #[cfg(test)]
 mod tests;
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, io, path::PathBuf};
 
 use mem_table::MemTable;
+use rmp_serde::{from_read, to_vec};
+use serde::{Deserialize, Serialize};
 use ss_table::SSTable;
 use value::Value;
+
+#[derive(Serialize, Deserialize)]
+pub struct GeneralIndex {
+    index: HashMap<String, String>,
+}
+
+impl GeneralIndex {
+    pub fn new() -> Self {
+        Self {
+            index: HashMap::new(),
+        }
+    }
+    pub fn get(&self, key: &str) -> Option<String> {
+        match self.index.get(key) {
+            Some(found) => Some(found.clone()),
+            None => None,
+        }
+    }
+    pub fn insert(&mut self, key: String, file_name: String) {
+        self.index.insert(key, file_name);
+    }
+    pub fn from_file(file_path: &str) -> Self {
+        let file = std::fs::File::open(file_path).unwrap();
+        from_read(file).unwrap()
+    }
+}
 
 pub struct Chest {
     dir_path: PathBuf,
     mem_table: MemTable,
     flush_size: usize,
-    general_index: HashMap<String, String>,
+    general_index: GeneralIndex,
 }
 
 impl Chest {
-    pub fn new<P: AsRef<Path>>(dir_path: P, flush_size: usize) -> Self {
+    pub fn new(dir_path: &str, flush_size: usize) -> Self {
+        let dir_path = PathBuf::from(dir_path);
+        let mut general_index = GeneralIndex::new();
+        if !dir_path.is_dir() {
+            panic!("Expected path to be a directory");
+        }
+        for file in dir_path.read_dir().unwrap() {
+            let ok_file = file.unwrap();
+            let file_name = ok_file.file_name();
+            if file_name == "chest.index" {
+                general_index = GeneralIndex::from_file(ok_file.path().to_str().unwrap());
+            }
+        }
         Self {
-            dir_path: PathBuf::new().join(dir_path),
+            dir_path,
             mem_table: MemTable::new(),
             flush_size,
-            general_index: HashMap::new(),
+            general_index,
         }
     }
     pub fn set(&mut self, key: &str, value: Value) {
@@ -48,7 +85,7 @@ impl Chest {
             default => default,
         }
     }
-    pub fn flush(&mut self) -> std::io::Result<()> {
+    fn flush(&mut self) -> std::io::Result<()> {
         let flushed = self.mem_table.flush();
         let ss_table = SSTable::new(self.dir_path.clone(), flushed.into_iter().collect());
         let file_name = cuid::cuid2();
@@ -56,6 +93,12 @@ impl Chest {
         for (key, _) in ss_table.index.table {
             self.general_index.insert(key, file_name.to_string());
         }
+        Ok(())
+    }
+    fn save_general_index(&self) -> io::Result<()> {
+        let serialized = to_vec(&self.general_index).unwrap();
+        let general_index_path = self.dir_path.join("chest.index");
+        std::fs::write(general_index_path, serialized)?;
         Ok(())
     }
     pub fn len(&self) -> usize {
@@ -66,7 +109,10 @@ impl Chest {
 impl Drop for Chest {
     fn drop(&mut self) {
         match self.flush() {
-            Ok(_) => (),
+            Ok(_) => match self.save_general_index() {
+                Ok(_) => (),
+                Err(_) => eprint!("Could not save general index"),
+            },
             Err(_) => eprintln!("Error trying to save data to sstable"),
         }
     }
