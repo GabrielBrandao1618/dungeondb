@@ -83,18 +83,40 @@ impl SSTable {
             file_name,
         }
     }
+    fn read_on_location(&self, segment: DocumentSegment) -> Value {
+        let data_file_path = self.base_dir.join(format!("{}.chest", self.file_name));
+        let mut r = BufReader::new(std::fs::File::open(data_file_path).unwrap());
+        r.seek(io::SeekFrom::Start(segment.offset as u64)).unwrap();
+        let mut buff = vec![0; segment.length];
+        r.read_exact(&mut buff).unwrap();
+        let value: Value = from_slice(&buff).unwrap();
+        value
+    }
     pub fn get(&self, key: &str) -> Option<Value> {
         match self.index.get(key) {
-            Some(segment) => {
-                let data_file_path = self.base_dir.join(format!("{}.chest", self.file_name));
-                let mut r = BufReader::new(std::fs::File::open(data_file_path).unwrap());
-                r.seek(io::SeekFrom::Start(segment.offset as u64)).unwrap();
-                let mut buff = vec![0; segment.length];
-                r.read_exact(&mut buff).unwrap();
-                let value: Value = from_slice(&buff).unwrap();
-                Some(value)
-            }
+            Some(segment) => Some(self.read_on_location(segment)),
             _ => None,
         }
+    }
+    pub fn read_entire(&self) -> HashMap<String, Value> {
+        let mut content = HashMap::new();
+        for (key, loc) in &self.index.table {
+            content.insert(key.clone(), self.read_on_location(*loc));
+        }
+        content
+    }
+    pub fn delete_self(&self) {
+        std::fs::remove_file(self.base_dir.join(format!("{}.chest", self.file_name))).unwrap();
+    }
+    /// This merges two sstables using the other as the prior
+    pub fn merge(self, other: Self, new_file_name: String) -> Self {
+        let mut self_content = self.read_entire();
+        let other_content = other.read_entire();
+        other.delete_self();
+        self.delete_self();
+
+        self_content.extend(other_content);
+
+        Self::new(self.base_dir, new_file_name, self_content)
     }
 }

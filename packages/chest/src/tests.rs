@@ -59,3 +59,20 @@ fn test_reinitialize_chest() {
     let chest2 = Chest::new(chest_dir.to_str().unwrap(), 1024);
     assert_eq!(chest2.get("foo"), Some(Value::String("bar".to_owned())));
 }
+#[test]
+fn test_merge_sstables() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1);
+    chest.set("foo", Value::String("bar".to_string()));
+    chest.set("foo1", Value::String("bar1".to_string()));
+    let table1 = chest.get_sstable("foo");
+    let table2 = chest.get_sstable("foo1");
+    match (table1, table2) {
+        (Some(table1), Some(table2)) => {
+            let merged = table1.merge(table2, chest_dir.to_str().unwrap().to_owned());
+            assert_eq!(merged.get("foo"), Some(Value::String("bar".to_owned())));
+            assert_eq!(merged.get("foo1"), Some(Value::String("bar1".to_owned())));
+        }
+        _ => assert!(false),
+    }
+}

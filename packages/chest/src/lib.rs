@@ -20,7 +20,7 @@ use value::Value;
 
 #[derive(Serialize, Deserialize)]
 pub struct GeneralIndex {
-    index: HashMap<String, String>,
+    pub index: HashMap<String, String>,
 }
 
 impl GeneralIndex {
@@ -84,13 +84,18 @@ impl Chest {
             self.flush().unwrap();
         }
     }
+    pub fn get_sstable(&self, key: &str) -> Option<SSTable> {
+        match self.general_index.get(key) {
+            Some(found_file_name) => {
+                Some(SSTable::from_file(self.dir_path.clone(), found_file_name))
+            }
+            None => None,
+        }
+    }
     pub fn get(&self, key: &str) -> Option<Value> {
         match self.mem_table.get(key) {
-            None => match self.general_index.get(key) {
-                Some(found_file_name) => {
-                    let sstable = SSTable::from_file(self.dir_path.clone(), found_file_name);
-                    sstable.get(key)
-                }
+            None => match self.get_sstable(key) {
+                Some(found_sstable) => found_sstable.get(key),
                 None => None,
             },
             default => default,
@@ -104,9 +109,9 @@ impl Chest {
             file_name,
             flushed.into_iter().collect(),
         );
-        for (key, _) in ss_table.index.table {
+        for key in ss_table.index.table.keys() {
             self.general_index
-                .insert(key, ss_table.file_name.to_string());
+                .insert(key.to_string(), ss_table.file_name.to_string());
         }
         Ok(())
     }
