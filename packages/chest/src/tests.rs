@@ -65,14 +65,12 @@ fn test_merge_sstables() {
     let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1);
     chest.set("foo", Value::String("bar".to_string()));
     chest.set("foo1", Value::String("bar1".to_string()));
-    let table1 = chest.get_sstable("foo");
-    let table2 = chest.get_sstable("foo1");
-    match (table1, table2) {
-        (Some(table1), Some(table2)) => {
-            let merged = table1.merge(table2, chest_dir.to_str().unwrap().to_owned());
-            assert_eq!(merged.get("foo"), Some(Value::String("bar".to_owned())));
-            assert_eq!(merged.get("foo1"), Some(Value::String("bar1".to_owned())));
-        }
-        _ => assert!(false),
-    }
+
+    let mut iter_chest_sstables = chest.sstables.iter().cloned();
+    let table1 = iter_chest_sstables.next().unwrap();
+    let table2 = iter_chest_sstables.next().unwrap();
+
+    let merged = table1.merge(table2, generate_sstable_name());
+    assert_eq!(merged.get("foo"), Some(Value::String("bar".to_owned())));
+    assert_eq!(merged.get("foo1"), Some(Value::String("bar1".to_owned())));
 }

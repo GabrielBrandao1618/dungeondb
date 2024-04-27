@@ -1,6 +1,8 @@
 use std::{
+    cmp::Ordering,
     collections::{BTreeMap, HashMap},
     io::{self, BufReader, BufWriter, Read, Seek, Write},
+    os::unix::fs::MetadataExt,
     path::PathBuf,
 };
 
@@ -24,7 +26,7 @@ impl From<(usize, usize)> for DocumentSegment {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Index {
     pub table: BTreeMap<String, DocumentSegment>,
 }
@@ -48,6 +50,7 @@ impl Index {
         }
     }
 }
+#[derive(Clone)]
 pub struct SSTable {
     pub index: Index,
     pub base_dir: PathBuf,
@@ -120,11 +123,45 @@ impl SSTable {
     pub fn merge(self, other: Self, new_file_name: String) -> Self {
         let mut self_content = self.read_entire();
         let other_content = other.read_entire();
-        other.delete_self();
         self.delete_self();
+        other.delete_self();
 
         self_content.extend(other_content);
 
         Self::new(self.base_dir, new_file_name, self_content)
+    }
+    pub fn data_file_size(&self) -> usize {
+        let metadata = std::fs::metadata(self.get_data_file_path())
+            .expect(&format!("{}", self.get_data_file_path().display()));
+        metadata.size() as usize
+    }
+}
+
+impl Ord for SSTable {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.data_file_size() > other.data_file_size() {
+            Ordering::Greater
+        } else if self.data_file_size() < other.data_file_size() {
+            Ordering::Less
+        } else {
+            Ordering::Equal
+        }
+    }
+}
+impl Eq for SSTable {}
+impl PartialOrd for SSTable {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.data_file_size() > other.data_file_size() {
+            Some(Ordering::Greater)
+        } else if self.data_file_size() < other.data_file_size() {
+            Some(Ordering::Less)
+        } else {
+            Some(Ordering::Equal)
+        }
+    }
+}
+impl PartialEq for SSTable {
+    fn eq(&self, other: &Self) -> bool {
+        self.data_file_size() == other.data_file_size()
     }
 }
