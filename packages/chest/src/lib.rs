@@ -19,6 +19,7 @@ pub struct Chest {
     mem_table: MemTable,
     flush_size: usize,
     sstables: Vec<SSTable>,
+    max_sstable_count: usize,
 }
 
 fn generate_sstable_name() -> String {
@@ -28,7 +29,7 @@ fn generate_sstable_name() -> String {
 }
 
 impl Chest {
-    pub fn new(dir_path: &str, flush_size: usize) -> Self {
+    pub fn new(dir_path: &str, flush_size: usize, max_sstable_count: usize) -> Self {
         let mut sstables = Vec::new();
         let dir_path = PathBuf::from(dir_path);
         if !dir_path.is_dir() {
@@ -53,6 +54,7 @@ impl Chest {
             dir_path,
             mem_table: MemTable::new(),
             flush_size,
+            max_sstable_count,
             sstables,
         }
     }
@@ -84,7 +86,16 @@ impl Chest {
             flushed.into_iter().collect(),
         );
         self.sstables.push(ss_table);
+        if self.sstables.len() > self.max_sstable_count {
+            self.merge_smaller_sstables();
+        }
         Ok(())
+    }
+    fn merge_smaller_sstables(&mut self) {
+        let smaller1 = self.sstables.remove(0);
+        let smaller2 = self.sstables.remove(0);
+        let merged = smaller1.merge(smaller2, generate_sstable_name());
+        self.sstables.push(merged);
     }
     pub fn len(&self) -> usize {
         self.mem_table.size()

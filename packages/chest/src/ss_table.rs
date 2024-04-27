@@ -1,5 +1,4 @@
 use std::{
-    cmp::Ordering,
     collections::{BTreeMap, HashMap},
     io::{self, BufReader, BufWriter, Read, Seek, Write},
     os::unix::fs::MetadataExt,
@@ -130,38 +129,9 @@ impl SSTable {
 
         Self::new(self.base_dir, new_file_name, self_content)
     }
-    pub fn data_file_size(&self) -> usize {
+    pub fn _data_file_size(&self) -> usize {
         let metadata = std::fs::metadata(self.get_data_file_path())
             .expect(&format!("{}", self.get_data_file_path().display()));
         metadata.size() as usize
-    }
-}
-
-impl Ord for SSTable {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.data_file_size() > other.data_file_size() {
-            Ordering::Greater
-        } else if self.data_file_size() < other.data_file_size() {
-            Ordering::Less
-        } else {
-            Ordering::Equal
-        }
-    }
-}
-impl Eq for SSTable {}
-impl PartialOrd for SSTable {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.data_file_size() > other.data_file_size() {
-            Some(Ordering::Greater)
-        } else if self.data_file_size() < other.data_file_size() {
-            Some(Ordering::Less)
-        } else {
-            Some(Ordering::Equal)
-        }
-    }
-}
-impl PartialEq for SSTable {
-    fn eq(&self, other: &Self) -> bool {
-        self.data_file_size() == other.data_file_size()
     }
 }
