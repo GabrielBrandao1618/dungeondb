@@ -54,7 +54,7 @@ pub struct Chest {
 fn generate_sstable_name() -> String {
     let current_time = SystemTime::now();
     let elapsed = current_time.duration_since(UNIX_EPOCH).unwrap();
-    format!("{}", elapsed.as_millis())
+    format!("{}", elapsed.as_nanos())
 }
 
 impl Chest {
@@ -62,7 +62,7 @@ impl Chest {
         let dir_path = PathBuf::from(dir_path);
         let mut general_index = GeneralIndex::new();
         if !dir_path.is_dir() {
-            panic!("Expected path to be a directory");
+            std::fs::create_dir_all(&dir_path).expect("Could not create chest dir");
         }
         for file in dir_path.read_dir().unwrap() {
             let ok_file = file.unwrap();
@@ -131,7 +131,7 @@ impl Drop for Chest {
         match self.flush() {
             Ok(_) => match self.save_general_index() {
                 Ok(_) => (),
-                Err(_) => eprint!("Could not save general index"),
+                Err(_) => eprintln!("Could not save general index"),
             },
             Err(_) => eprintln!("Error trying to save data to sstable"),
         }

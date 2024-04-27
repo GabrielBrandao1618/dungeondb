@@ -3,7 +3,7 @@ use cuid::cuid2;
 use super::*;
 
 fn ensure_dir_exists(dir_path: &PathBuf) -> std::io::Result<()> {
-    if !dir_path.exists() {
+    if !(dir_path.exists() || !dir_path.is_dir()) {
         std::fs::create_dir(dir_path)?;
     }
     Ok(())

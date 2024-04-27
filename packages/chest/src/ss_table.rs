@@ -107,6 +107,7 @@ impl SSTable {
     }
     pub fn delete_self(&self) {
         std::fs::remove_file(self.base_dir.join(format!("{}.chest", self.file_name))).unwrap();
+        std::fs::remove_file(self.base_dir.join(format!("{}.index", self.file_name))).unwrap();
     }
     /// This merges two sstables using the other as the prior
     pub fn merge(self, other: Self, new_file_name: String) -> Self {
