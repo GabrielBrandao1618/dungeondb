@@ -6,6 +6,8 @@ mod value;
 mod tests;
 
 use std::{
+    cmp::Ordering,
+    collections::BTreeSet,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -18,7 +20,7 @@ pub struct Chest {
     dir_path: PathBuf,
     mem_table: MemTable,
     flush_size: usize,
-    sstables: Vec<SSTable>,
+    sstables: BTreeSet<OrderedByDateSSTable>,
     max_sstable_count: usize,
 }
 
@@ -30,7 +32,7 @@ fn generate_sstable_name() -> String {
 
 impl Chest {
     pub fn new(dir_path: &str, flush_size: usize, max_sstable_count: usize) -> Self {
-        let mut sstables = Vec::new();
+        let mut sstables = BTreeSet::new();
         let dir_path = PathBuf::from(dir_path);
         if !dir_path.is_dir() {
             std::fs::create_dir_all(&dir_path).expect("Could not create chest dir");
@@ -41,10 +43,10 @@ impl Chest {
             match file_path.extension() {
                 Some(ok_path) => {
                     if ok_path.to_str().to_owned() == Some("index") {
-                        sstables.push(SSTable::from_file(
+                        sstables.insert(OrderedByDateSSTable(SSTable::from_file(
                             dir_path.clone(),
                             file_path.file_stem().unwrap().to_str().unwrap().to_owned(),
-                        ));
+                        )));
                     }
                 }
                 None => unreachable!(),
@@ -68,7 +70,7 @@ impl Chest {
         match self.mem_table.get(key) {
             None => {
                 for sstable in &self.sstables {
-                    if let Some(found) = sstable.get(key) {
+                    if let Some(found) = sstable.0.get(key) {
                         return Some(found);
                     }
                 }
@@ -85,20 +87,56 @@ impl Chest {
             file_name,
             flushed.into_iter().collect(),
         );
-        self.sstables.push(ss_table);
+        self.sstables.insert(OrderedByDateSSTable(ss_table));
         if self.sstables.len() > self.max_sstable_count {
             self.merge_smaller_sstables();
         }
         Ok(())
     }
     fn merge_smaller_sstables(&mut self) {
-        let smaller1 = self.sstables.remove(0);
-        let smaller2 = self.sstables.remove(0);
-        let merged = smaller1.merge(smaller2, generate_sstable_name());
-        self.sstables.push(merged);
+        let smaller1 = self.sstables.pop_last().unwrap();
+        let smaller2 = self.sstables.pop_last().unwrap();
+        let merged = smaller1.0.merge(smaller2.0, generate_sstable_name());
+        self.sstables.insert(OrderedByDateSSTable(merged));
     }
     pub fn len(&self) -> usize {
         self.mem_table.size()
+    }
+}
+#[derive(Clone)]
+struct OrderedByDateSSTable(SSTable);
+impl OrderedByDateSSTable {
+    fn get_date_milis(&self) -> u128 {
+        self.0.file_name.parse().unwrap()
+    }
+}
+impl PartialOrd for OrderedByDateSSTable {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        // The more recent sstable is in the end in terms of ordering
+        if self.get_date_milis() > other.get_date_milis() {
+            Some(Ordering::Greater)
+        } else if self.get_date_milis() < other.get_date_milis() {
+            Some(Ordering::Less)
+        } else {
+            Some(Ordering::Equal)
+        }
+    }
+}
+impl Ord for OrderedByDateSSTable {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.get_date_milis() > other.get_date_milis() {
+            Ordering::Greater
+        } else if self.get_date_milis() < other.get_date_milis() {
+            Ordering::Less
+        } else {
+            Ordering::Equal
+        }
+    }
+}
+impl Eq for OrderedByDateSSTable {}
+impl PartialEq for OrderedByDateSSTable {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.file_name == other.0.file_name
     }
 }
 

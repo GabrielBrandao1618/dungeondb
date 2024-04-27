@@ -70,7 +70,7 @@ fn test_merge_sstables() {
     let table1 = iter_chest_sstables.next().unwrap();
     let table2 = iter_chest_sstables.next().unwrap();
 
-    let merged = table1.merge(table2, generate_sstable_name());
+    let merged = table1.0.merge(table2.0, generate_sstable_name());
     assert_eq!(merged.get("foo"), Some(Value::String("bar".to_owned())));
     assert_eq!(merged.get("foo1"), Some(Value::String("bar1".to_owned())));
 }
