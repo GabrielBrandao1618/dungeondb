@@ -98,6 +98,13 @@ impl SSTable {
             _ => None,
         }
     }
+
+    pub fn get_data_file_path(&self) -> PathBuf {
+        self.base_dir.join(format!("{}.chest", self.file_name))
+    }
+    pub fn get_index_file_path(&self) -> PathBuf {
+        self.base_dir.join(format!("{}.index", self.file_name))
+    }
     pub fn read_entire(&self) -> HashMap<String, Value> {
         let mut content = HashMap::new();
         for (key, loc) in &self.index.table {
@@ -106,8 +113,8 @@ impl SSTable {
         content
     }
     pub fn delete_self(&self) {
-        std::fs::remove_file(self.base_dir.join(format!("{}.chest", self.file_name))).unwrap();
-        std::fs::remove_file(self.base_dir.join(format!("{}.index", self.file_name))).unwrap();
+        std::fs::remove_file(self.get_data_file_path()).unwrap();
+        std::fs::remove_file(self.get_index_file_path()).unwrap();
     }
     /// This merges two sstables using the other as the prior
     pub fn merge(self, other: Self, new_file_name: String) -> Self {
