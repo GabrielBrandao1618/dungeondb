@@ -85,3 +85,14 @@ fn test_merge_sstables_on_limit() {
     assert_eq!(chest.get("foo"), Some(Value::Integer(1)));
     assert_eq!(chest.get("bar"), Some(Value::Integer(2)));
 }
+#[test]
+fn test_overwrite_on_merge() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1, 1);
+    chest.set("foo", Value::Integer(1));
+    chest.set("foo", Value::Integer(2));
+    assert_eq!(chest.sstables.len(), 1);
+    assert_eq!(chest.get("foo"), Some(Value::Integer(2)));
+    chest.set("foo", Value::Integer(6));
+    assert_eq!(chest.get("foo"), Some(Value::Integer(6)));
+}
