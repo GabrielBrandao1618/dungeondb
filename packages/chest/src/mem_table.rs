@@ -17,13 +17,10 @@ impl MemTable {
         self.table.insert(key.to_owned(), value);
     }
     pub fn get(&self, key: &str) -> Option<Value> {
-        match self.table.get(key) {
-            Some(found) => Some(found.clone()),
-            None => None,
-        }
+        self.table.get(key).cloned()
     }
     pub fn flush(&mut self) -> MemTableTable {
-        mem::replace(&mut self.table, HashMap::new())
+        mem::take(&mut self.table)
     }
     pub fn size(&self) -> usize {
         self.table.len()

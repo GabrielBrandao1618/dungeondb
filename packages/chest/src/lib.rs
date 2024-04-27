@@ -42,7 +42,7 @@ impl Chest {
             let file_path = ok_file.path();
             match file_path.extension() {
                 Some(ok_path) => {
-                    if ok_path.to_str().to_owned() == Some("index") {
+                    if ok_path.to_str() == Some("index") {
                         sstables.insert(OrderedByDateSSTable(SSTable::from_file(
                             dir_path.clone(),
                             file_path.file_stem().unwrap().to_str().unwrap().to_owned(),
@@ -102,6 +102,9 @@ impl Chest {
     pub fn len(&self) -> usize {
         self.mem_table.size()
     }
+    pub fn is_empty(&self) -> bool {
+        self.len() > 0
+    }
 }
 #[derive(Clone)]
 struct OrderedByDateSSTable(SSTable);
@@ -113,24 +116,13 @@ impl OrderedByDateSSTable {
 impl PartialOrd for OrderedByDateSSTable {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         // The more recent sstable is in the end in terms of ordering
-        if self.get_date_milis() > other.get_date_milis() {
-            Some(Ordering::Greater)
-        } else if self.get_date_milis() < other.get_date_milis() {
-            Some(Ordering::Less)
-        } else {
-            Some(Ordering::Equal)
-        }
+        Some(self.get_date_milis().cmp(&other.get_date_milis()))
     }
 }
 impl Ord for OrderedByDateSSTable {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.get_date_milis() > other.get_date_milis() {
-            Ordering::Greater
-        } else if self.get_date_milis() < other.get_date_milis() {
-            Ordering::Less
-        } else {
-            Ordering::Equal
-        }
+        // The more recent sstable is in the end in terms of ordering
+        self.get_date_milis().cmp(&other.get_date_milis())
     }
 }
 impl Eq for OrderedByDateSSTable {}

@@ -43,10 +43,7 @@ impl Index {
         self.table.insert(key, segment);
     }
     pub fn get(&self, key: &str) -> Option<DocumentSegment> {
-        match self.table.get(key) {
-            Some(segment) => Some(segment.clone()),
-            None => None,
-        }
+        self.table.get(key).cloned()
     }
 }
 #[derive(Clone)]
@@ -95,10 +92,9 @@ impl SSTable {
         value
     }
     pub fn get(&self, key: &str) -> Option<Value> {
-        match self.index.get(key) {
-            Some(segment) => Some(self.read_on_location(segment)),
-            _ => None,
-        }
+        self.index
+            .get(key)
+            .map(|segment| self.read_on_location(segment))
     }
 
     pub fn get_data_file_path(&self) -> PathBuf {
@@ -131,7 +127,7 @@ impl SSTable {
     }
     pub fn _data_file_size(&self) -> usize {
         let metadata = std::fs::metadata(self.get_data_file_path())
-            .expect(&format!("{}", self.get_data_file_path().display()));
+            .unwrap_or_else(|_| panic!("{}", self.get_data_file_path().display()));
         metadata.size() as usize
     }
 }
