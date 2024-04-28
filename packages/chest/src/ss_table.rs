@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{hash_map, BTreeMap, HashMap},
     io::{self, BufReader, BufWriter, Read, Seek, Write},
     os::unix::fs::MetadataExt,
     path::PathBuf,
@@ -25,7 +25,7 @@ impl From<(usize, usize)> for DocumentSegment {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Index {
     pub table: BTreeMap<String, DocumentSegment>,
 }
@@ -46,6 +46,13 @@ impl Index {
         self.table.get(key).cloned()
     }
 }
+impl Iterator for Index {
+    type Item = (String, DocumentSegment);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.table.pop_first()
+    }
+}
 #[derive(Clone)]
 pub struct SSTable {
     pub index: Index,
@@ -54,7 +61,11 @@ pub struct SSTable {
 }
 
 impl SSTable {
-    pub fn new(base_dir: PathBuf, file_name: String, table: HashMap<String, Value>) -> Self {
+    pub fn new(
+        base_dir: PathBuf,
+        file_name: String,
+        table: hash_map::IntoIter<String, Value>,
+    ) -> Self {
         let mut index = Index::new();
 
         let full_data_file_path = base_dir.join(format!("{file_name}.chest"));
@@ -103,7 +114,7 @@ impl SSTable {
     pub fn get_index_file_path(&self) -> PathBuf {
         self.base_dir.join(format!("{}.index", self.file_name))
     }
-    pub fn read_entire(&self) -> HashMap<String, Value> {
+    pub fn _read_entire(&self) -> HashMap<String, Value> {
         let mut content = HashMap::new();
         for (key, loc) in &self.index.table {
             content.insert(key.clone(), self.read_on_location(*loc));
@@ -115,15 +126,18 @@ impl SSTable {
         std::fs::remove_file(self.get_index_file_path()).unwrap();
     }
     /// This merges two sstables using the other as the prior
-    pub fn merge(self, other: Self, new_file_name: String) -> Self {
-        let mut self_content = self.read_entire();
-        let other_content = other.read_entire();
+    pub fn merge(mut self, mut other: Self, new_file_name: String) -> Self {
+        let mut merged: HashMap<String, Value> = HashMap::new();
+        let self_index = std::mem::take(&mut self.index);
+        let other_index = std::mem::take(&mut other.index);
+
+        merged.extend(self_index.map(|(key, segment)| (key, self.read_on_location(segment))));
+        merged.extend(other_index.map(|(key, segment)| (key, other.read_on_location(segment))));
+
         self.delete_self();
         other.delete_self();
 
-        self_content.extend(other_content);
-
-        Self::new(self.base_dir, new_file_name, self_content)
+        Self::new(self.base_dir, new_file_name, merged.into_iter())
     }
     pub fn _data_file_size(&self) -> usize {
         let metadata = std::fs::metadata(self.get_data_file_path())

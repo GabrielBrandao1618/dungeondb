@@ -82,11 +82,7 @@ impl Chest {
     fn flush(&mut self) -> std::io::Result<()> {
         let flushed = self.mem_table.flush();
         let file_name = generate_sstable_name();
-        let ss_table = SSTable::new(
-            self.dir_path.clone(),
-            file_name,
-            flushed.into_iter().collect(),
-        );
+        let ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed.into_iter());
         self.sstables.insert(OrderedByDateSSTable(ss_table));
         if self.sstables.len() > self.max_sstable_count {
             self.merge_smaller_sstables();
