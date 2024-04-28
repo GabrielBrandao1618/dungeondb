@@ -82,20 +82,20 @@ impl Chest {
     fn flush(&mut self) -> std::io::Result<()> {
         let flushed = self.mem_table.flush();
         let file_name = generate_sstable_name();
-        let ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed.into_iter());
-        self.sstables.insert(OrderedByDateSSTable(ss_table));
-        if self.sstables.len() > self.max_sstable_count {
-            self.merge_smaller_sstables();
+        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed.into_iter());
+        if self.sstables.len() >= self.max_sstable_count {
+            // Pick the oldest sstable and merge it with the new one. Since every merge result will
+            // be placed at the end of the sstable list, the start will mostly have the smaller
+            // ones
+            let mut smaller = self.sstables.pop_first().unwrap();
+            let merged = smaller.0.merge(&mut ss_table, generate_sstable_name());
+            self.sstables.insert(OrderedByDateSSTable(merged));
+            smaller.0.delete_self();
+            ss_table.delete_self();
+        } else {
+            self.sstables.insert(OrderedByDateSSTable(ss_table));
         }
         Ok(())
-    }
-    fn merge_smaller_sstables(&mut self) {
-        let mut smaller1 = self.sstables.pop_last().unwrap();
-        let mut smaller2 = self.sstables.pop_last().unwrap();
-        let merged = smaller2.0.merge(&mut smaller1.0, generate_sstable_name());
-        smaller1.0.delete_self();
-        smaller2.0.delete_self();
-        self.sstables.insert(OrderedByDateSSTable(merged));
     }
     pub fn len(&self) -> usize {
         self.mem_table.size()

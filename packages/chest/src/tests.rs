@@ -64,15 +64,14 @@ fn test_merge_sstables() {
     let chest_dir = get_test_tempdir();
     let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1, 8);
     chest.set("foo", Value::String("bar".to_string()));
-    chest.set("foo1", Value::String("bar1".to_string()));
+    chest.set("foo", Value::String("barz".to_string()));
 
     let mut iter_chest_sstables = chest.sstables.iter().cloned();
     let mut table1 = iter_chest_sstables.next().unwrap();
     let mut table2 = iter_chest_sstables.next().unwrap();
 
     let merged = table1.0.merge(&mut table2.0, generate_sstable_name());
-    assert_eq!(merged.get("foo"), Some(Value::String("bar".to_owned())));
-    assert_eq!(merged.get("foo1"), Some(Value::String("bar1".to_owned())));
+    assert_eq!(merged.get("foo"), Some(Value::String("barz".to_owned())));
 }
 
 #[test]
