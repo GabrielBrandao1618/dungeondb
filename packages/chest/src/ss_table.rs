@@ -93,7 +93,7 @@ impl SSTable {
             file_name,
         }
     }
-    fn read_on_location(&self, segment: DocumentSegment) -> Value {
+    fn read_segment(&self, segment: DocumentSegment) -> Value {
         let data_file_path = self.base_dir.join(format!("{}.chest", self.file_name));
         let mut r = BufReader::new(std::fs::File::open(data_file_path).unwrap());
         r.seek(io::SeekFrom::Start(segment.offset as u64)).unwrap();
@@ -105,7 +105,7 @@ impl SSTable {
     pub fn get(&self, key: &str) -> Option<Value> {
         self.index
             .get(key)
-            .map(|segment| self.read_on_location(segment))
+            .map(|segment| self.read_segment(segment))
     }
 
     pub fn get_data_file_path(&self) -> PathBuf {
@@ -117,7 +117,7 @@ impl SSTable {
     pub fn _read_entire(&self) -> HashMap<String, Value> {
         let mut content = HashMap::new();
         for (key, loc) in &self.index.table {
-            content.insert(key.clone(), self.read_on_location(*loc));
+            content.insert(key.clone(), self.read_segment(*loc));
         }
         content
     }
@@ -131,8 +131,8 @@ impl SSTable {
         let other_index = std::mem::take(&mut other.index);
 
         let merged = self_index
-            .map(|(key, segment)| (key, self.read_on_location(segment)))
-            .chain(other_index.map(|(key, segment)| (key, other.read_on_location(segment))));
+            .map(|(key, segment)| (key, self.read_segment(segment)))
+            .chain(other_index.map(|(key, segment)| (key, other.read_segment(segment))));
 
         Self::new(self.base_dir.clone(), new_file_name, merged)
     }
