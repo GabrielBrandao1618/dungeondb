@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map, BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap},
     io::{self, BufReader, BufWriter, Read, Seek, Write},
     os::unix::fs::MetadataExt,
     path::PathBuf,
@@ -64,7 +64,7 @@ impl SSTable {
     pub fn new(
         base_dir: PathBuf,
         file_name: String,
-        table: hash_map::IntoIter<String, Value>,
+        table: impl Iterator<Item = (String, Value)>,
     ) -> Self {
         let mut index = Index::new();
 
@@ -125,19 +125,16 @@ impl SSTable {
         std::fs::remove_file(self.get_data_file_path()).unwrap();
         std::fs::remove_file(self.get_index_file_path()).unwrap();
     }
-    /// This merges two sstables using the other as the prior
-    pub fn merge(mut self, mut other: Self, new_file_name: String) -> Self {
-        let mut merged: HashMap<String, Value> = HashMap::new();
+    /// This merges two sstables using the other as the priority
+    pub fn merge(&mut self, other: &mut Self, new_file_name: String) -> Self {
         let self_index = std::mem::take(&mut self.index);
         let other_index = std::mem::take(&mut other.index);
 
-        merged.extend(self_index.map(|(key, segment)| (key, self.read_on_location(segment))));
-        merged.extend(other_index.map(|(key, segment)| (key, other.read_on_location(segment))));
+        let merged = self_index
+            .map(|(key, segment)| (key, self.read_on_location(segment)))
+            .chain(other_index.map(|(key, segment)| (key, other.read_on_location(segment))));
 
-        self.delete_self();
-        other.delete_self();
-
-        Self::new(self.base_dir, new_file_name, merged.into_iter())
+        Self::new(self.base_dir.clone(), new_file_name, merged)
     }
     pub fn _data_file_size(&self) -> usize {
         let metadata = std::fs::metadata(self.get_data_file_path())

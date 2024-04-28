@@ -90,9 +90,11 @@ impl Chest {
         Ok(())
     }
     fn merge_smaller_sstables(&mut self) {
-        let smaller1 = self.sstables.pop_last().unwrap();
-        let smaller2 = self.sstables.pop_last().unwrap();
-        let merged = smaller2.0.merge(smaller1.0, generate_sstable_name());
+        let mut smaller1 = self.sstables.pop_last().unwrap();
+        let mut smaller2 = self.sstables.pop_last().unwrap();
+        let merged = smaller2.0.merge(&mut smaller1.0, generate_sstable_name());
+        smaller1.0.delete_self();
+        smaller2.0.delete_self();
         self.sstables.insert(OrderedByDateSSTable(merged));
     }
     pub fn len(&self) -> usize {

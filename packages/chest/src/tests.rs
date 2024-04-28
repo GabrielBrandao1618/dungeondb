@@ -67,10 +67,10 @@ fn test_merge_sstables() {
     chest.set("foo1", Value::String("bar1".to_string()));
 
     let mut iter_chest_sstables = chest.sstables.iter().cloned();
-    let table1 = iter_chest_sstables.next().unwrap();
-    let table2 = iter_chest_sstables.next().unwrap();
+    let mut table1 = iter_chest_sstables.next().unwrap();
+    let mut table2 = iter_chest_sstables.next().unwrap();
 
-    let merged = table1.0.merge(table2.0, generate_sstable_name());
+    let merged = table1.0.merge(&mut table2.0, generate_sstable_name());
     assert_eq!(merged.get("foo"), Some(Value::String("bar".to_owned())));
     assert_eq!(merged.get("foo1"), Some(Value::String("bar1".to_owned())));
 }
@@ -95,4 +95,16 @@ fn test_overwrite_on_merge() {
     assert_eq!(chest.get("foo"), Some(Value::Integer(2)));
     chest.set("foo", Value::Integer(6));
     assert_eq!(chest.get("foo"), Some(Value::Integer(6)));
+}
+#[test]
+fn merging_delete_old_sstables() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1, 1);
+    chest.set("foo", Value::Integer(1));
+    chest.set("bar", Value::Integer(2));
+    drop(chest);
+    let chest = Chest::new(chest_dir.to_str().unwrap(), 1, 1);
+    assert_eq!(chest.sstables.len(), 1);
+    assert_eq!(chest.get("foo"), Some(Value::Integer(1)));
+    assert_eq!(chest.get("bar"), Some(Value::Integer(2)));
 }
