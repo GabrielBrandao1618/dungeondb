@@ -13,6 +13,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use filter::Filter;
 use mem_table::MemTable;
 use ss_table::SSTable;
 use value::Value;
@@ -23,6 +24,7 @@ pub struct Chest {
     flush_size: usize,
     sstables: BTreeSet<OrderedByDateSSTable>,
     max_sstable_count: usize,
+    filter: Box<dyn Filter>,
 }
 
 fn generate_sstable_name() -> String {
@@ -32,7 +34,12 @@ fn generate_sstable_name() -> String {
 }
 
 impl Chest {
-    pub fn new(dir_path: &str, flush_size: usize, max_sstable_count: usize) -> Self {
+    pub fn new(
+        dir_path: &str,
+        flush_size: usize,
+        max_sstable_count: usize,
+        mut filter: Box<dyn Filter>,
+    ) -> Self {
         let mut sstables = BTreeSet::new();
         let dir_path = PathBuf::from(dir_path);
         if !dir_path.is_dir() {
@@ -44,10 +51,14 @@ impl Chest {
             match file_path.extension() {
                 Some(ok_path) => {
                     if ok_path.to_str() == Some("index") {
-                        sstables.insert(OrderedByDateSSTable(SSTable::from_file(
+                        let sstable = SSTable::from_file(
                             dir_path.clone(),
                             file_path.file_stem().unwrap().to_str().unwrap().to_owned(),
-                        )));
+                        );
+                        for (key, _) in sstable.index.table.iter() {
+                            filter.insert(key);
+                        }
+                        sstables.insert(OrderedByDateSSTable(sstable));
                     }
                 }
                 None => unreachable!(),
@@ -59,15 +70,20 @@ impl Chest {
             flush_size,
             max_sstable_count,
             sstables,
+            filter,
         }
     }
     pub fn set(&mut self, key: &str, value: Value) {
         self.mem_table.set(key, value);
+        self.filter.insert(key);
         if self.mem_table.size() >= self.flush_size {
             self.flush().unwrap();
         }
     }
     pub fn get(&self, key: &str) -> Option<Value> {
+        if !self.filter.contains(key) {
+            return None;
+        }
         match self.mem_table.get(key) {
             None => {
                 for sstable in &self.sstables {

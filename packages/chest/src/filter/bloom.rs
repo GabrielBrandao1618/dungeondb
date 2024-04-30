@@ -24,6 +24,11 @@ impl BloomFilter {
         }
     }
 }
+impl Default for BloomFilter {
+    fn default() -> Self {
+        Self::new(2, 0.001)
+    }
+}
 
 impl Filter for BloomFilter {
     fn contains(&self, item: &str) -> bool {
