@@ -1,5 +1,7 @@
 use cuid::cuid2;
 
+use crate::filter::bloom::BloomFilter;
+
 use super::*;
 
 fn ensure_dir_exists(dir_path: &PathBuf) -> std::io::Result<()> {
@@ -20,7 +22,12 @@ fn get_test_tempdir() -> PathBuf {
 #[test]
 fn memtable_set_get() {
     let chest_dir = get_test_tempdir();
-    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1024, 8);
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1024,
+        8,
+        Box::new(BloomFilter::default()),
+    );
     chest.set("name", Value::String("John Doe".to_owned()));
     assert_eq!(
         chest.get("name"),
@@ -31,7 +38,12 @@ fn memtable_set_get() {
 #[test]
 fn test_flush() {
     let chest_dir = get_test_tempdir();
-    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 2, 8);
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        2,
+        8,
+        Box::new(BloomFilter::default()),
+    );
     chest.set("name", Value::String("John Doe".to_owned()));
     assert_eq!(chest.len(), 1);
     chest.set("age", Value::Integer(5));
@@ -40,7 +52,12 @@ fn test_flush() {
 #[test]
 fn test_read_from_sstable() {
     let chest_dir = get_test_tempdir();
-    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 2, 8);
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        2,
+        8,
+        Box::new(BloomFilter::default()),
+    );
     chest.set("foo", Value::String("bar".to_string()));
     chest.set("foo2", Value::String("bar2".to_string()));
     assert_eq!(chest.len(), 0);
@@ -51,18 +68,33 @@ fn test_read_from_sstable() {
 #[test]
 fn test_reinitialize_chest() {
     let chest_dir = get_test_tempdir();
-    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1024, 8);
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1024,
+        8,
+        Box::new(BloomFilter::default()),
+    );
 
     chest.set("foo", Value::String("bar".to_owned()));
     drop(chest);
 
-    let chest2 = Chest::new(chest_dir.to_str().unwrap(), 1024, 8);
+    let chest2 = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1024,
+        8,
+        Box::new(BloomFilter::default()),
+    );
     assert_eq!(chest2.get("foo"), Some(Value::String("bar".to_owned())));
 }
 #[test]
 fn test_merge_sstables() {
     let chest_dir = get_test_tempdir();
-    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1, 8);
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        8,
+        Box::new(BloomFilter::default()),
+    );
     chest.set("foo", Value::String("bar".to_string()));
     chest.set("foo", Value::String("barz".to_string()));
 
@@ -77,7 +109,12 @@ fn test_merge_sstables() {
 #[test]
 fn test_merge_sstables_on_limit() {
     let chest_dir = get_test_tempdir();
-    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1, 1);
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        1,
+        Box::new(BloomFilter::default()),
+    );
     chest.set("foo", Value::Integer(1));
     chest.set("bar", Value::Integer(2));
     assert_eq!(chest.sstables.len(), 1);
@@ -87,7 +124,12 @@ fn test_merge_sstables_on_limit() {
 #[test]
 fn test_overwrite_on_merge() {
     let chest_dir = get_test_tempdir();
-    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1, 1);
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        1,
+        Box::new(BloomFilter::default()),
+    );
     chest.set("foo", Value::Integer(1));
     chest.set("foo", Value::Integer(2));
     assert_eq!(chest.sstables.len(), 1);
@@ -98,11 +140,21 @@ fn test_overwrite_on_merge() {
 #[test]
 fn merging_delete_old_sstables() {
     let chest_dir = get_test_tempdir();
-    let mut chest = Chest::new(chest_dir.to_str().unwrap(), 1, 1);
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        1,
+        Box::new(BloomFilter::default()),
+    );
     chest.set("foo", Value::Integer(1));
     chest.set("bar", Value::Integer(2));
     drop(chest);
-    let chest = Chest::new(chest_dir.to_str().unwrap(), 1, 1);
+    let chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        1,
+        Box::new(BloomFilter::default()),
+    );
     assert_eq!(chest.sstables.len(), 1);
     assert_eq!(chest.get("foo"), Some(Value::Integer(1)));
     assert_eq!(chest.get("bar"), Some(Value::Integer(2)));
