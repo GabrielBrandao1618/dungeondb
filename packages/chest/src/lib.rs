@@ -1,3 +1,4 @@
+mod filter;
 mod mem_table;
 mod ss_table;
 mod value;
