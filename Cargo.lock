@@ -92,6 +92,7 @@ name = "chest"
 version = "0.1.0"
 dependencies = [
  "cuid",
+ "errors",
  "fasthash",
  "rmp-serde",
  "serde",
@@ -161,6 +162,10 @@ dependencies = [
 
 [[package]]
 name = "dungeondb"
+version = "0.1.0"
+
+[[package]]
+name = "errors"
 version = "0.1.0"
 
 [[package]]
