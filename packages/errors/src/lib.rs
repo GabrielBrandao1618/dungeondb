@@ -2,7 +2,14 @@ use std::{error::Error, fmt::Display};
 
 #[derive(Debug)]
 pub struct DungeonError {
-    message: String,
+    pub message: String,
+}
+impl DungeonError {
+    pub fn new(msg: &str) -> Self {
+        Self {
+            message: msg.to_owned(),
+        }
+    }
 }
 impl Display for DungeonError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -11,3 +18,4 @@ impl Display for DungeonError {
 }
 
 impl Error for DungeonError {}
+pub type DungeonResult<T> = Result<T, DungeonError>;

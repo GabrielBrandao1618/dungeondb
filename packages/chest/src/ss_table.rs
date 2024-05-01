@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     io::{self, BufReader, BufWriter, Read, Seek, Write},
     os::unix::fs::MetadataExt,
     path::PathBuf,
@@ -7,6 +7,7 @@ use std::{
 
 use crate::value::Value;
 
+use errors::{DungeonError, DungeonResult};
 use rmp_serde::decode::from_read;
 use rmp_serde::encode::to_vec;
 use rmp_serde::from_slice;
@@ -93,19 +94,22 @@ impl SSTable {
             file_name,
         }
     }
-    fn read_segment(&self, segment: DocumentSegment) -> Value {
+    fn read_segment(&self, segment: DocumentSegment) -> DungeonResult<Value> {
         let data_file_path = self.base_dir.join(format!("{}.chest", self.file_name));
         let mut r = BufReader::new(std::fs::File::open(data_file_path).unwrap());
         r.seek(io::SeekFrom::Start(segment.offset as u64)).unwrap();
         let mut buff = vec![0; segment.length];
         r.read_exact(&mut buff).unwrap();
         let value: Value = from_slice(&buff).unwrap();
-        value
+        Ok(value)
     }
-    pub fn get(&self, key: &str) -> Option<Value> {
-        self.index
+    pub fn get(&self, key: &str) -> DungeonResult<Option<Value>> {
+        let value = self
+            .index
             .get(key)
             .map(|segment| self.read_segment(segment))
+            .ok_or(DungeonError::new("Could not read segment"))?;
+        Ok(value.ok())
     }
 
     pub fn get_data_file_path(&self) -> PathBuf {
@@ -114,27 +118,23 @@ impl SSTable {
     pub fn get_index_file_path(&self) -> PathBuf {
         self.base_dir.join(format!("{}.index", self.file_name))
     }
-    pub fn _read_entire(&self) -> HashMap<String, Value> {
-        let mut content = HashMap::new();
-        for (key, loc) in &self.index.table {
-            content.insert(key.clone(), self.read_segment(*loc));
-        }
-        content
-    }
-    pub fn delete_self(&self) {
-        std::fs::remove_file(self.get_data_file_path()).unwrap();
-        std::fs::remove_file(self.get_index_file_path()).unwrap();
+    pub fn delete_self(&self) -> DungeonResult<()> {
+        std::fs::remove_file(self.get_data_file_path())
+            .map_err(|_| DungeonError::new("Could not delete data file"))?;
+        std::fs::remove_file(self.get_index_file_path())
+            .map_err(|_| DungeonError::new("Could not delete index file"))?;
+        Ok(())
     }
     /// This merges two sstables using the other as the priority
-    pub fn merge(&mut self, other: &mut Self, new_file_name: String) -> Self {
+    pub fn merge(&mut self, other: &mut Self, new_file_name: String) -> DungeonResult<Self> {
         let self_index = std::mem::take(&mut self.index);
         let other_index = std::mem::take(&mut other.index);
 
         let merged = self_index
-            .map(|(key, segment)| (key, self.read_segment(segment)))
-            .chain(other_index.map(|(key, segment)| (key, other.read_segment(segment))));
+            .map(|(key, segment)| (key, self.read_segment(segment).unwrap()))
+            .chain(other_index.map(|(key, segment)| (key, other.read_segment(segment).unwrap())));
 
-        Self::new(self.base_dir.clone(), new_file_name, merged)
+        Ok(Self::new(self.base_dir.clone(), new_file_name, merged))
     }
     pub fn _data_file_size(&self) -> usize {
         let metadata = std::fs::metadata(self.get_data_file_path())
