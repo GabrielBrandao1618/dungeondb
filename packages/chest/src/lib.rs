@@ -17,7 +17,7 @@ use errors::{DungeonError, DungeonResult};
 use filter::Filter;
 use mem_table::MemTable;
 use ss_table::SSTable;
-use value::{TimeStampedValue, Value};
+use value::TimeStampedValue;
 
 pub struct Chest {
     dir_path: PathBuf,

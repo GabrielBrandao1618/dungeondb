@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::value::{TimeStampedValue, Value};
+use crate::value::TimeStampedValue;
 
 use errors::{DungeonError, DungeonResult};
 use rmp_serde::decode::from_read;
