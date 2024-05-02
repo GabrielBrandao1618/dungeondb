@@ -1,6 +1,6 @@
 use cuid::cuid2;
 
-use crate::filter::bloom::BloomFilter;
+use crate::{filter::bloom::BloomFilter, value::Value};
 
 use super::*;
 
