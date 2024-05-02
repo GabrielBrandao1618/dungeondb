@@ -170,6 +170,6 @@ impl SSTable {
                 }),
             );
 
-        Ok(Self::new(self.base_dir.clone(), new_file_name, merged)?)
+        Self::new(self.base_dir.clone(), new_file_name, merged)
     }
 }
