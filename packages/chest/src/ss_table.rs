@@ -65,10 +65,13 @@ pub struct SSTable {
 }
 
 impl SSTable {
+    /// This method creates a SStable and index file using in the provided base_dir using the provided
+    /// file_name and returns the resulting sstable
+    /// Every key-value pair is a DungeonResult because the values could be comming from a file
     pub fn new(
         base_dir: PathBuf,
         file_name: String,
-        table: impl Iterator<Item = (String, Value)>,
+        table: impl Iterator<Item = DungeonResult<(String, Value)>>,
     ) -> DungeonResult<Self> {
         let mut index = Index::new();
 
@@ -78,7 +81,8 @@ impl SSTable {
                 .map_err(|_| DungeonError::new("Could not create data file"))?,
         );
 
-        for (key, value) in table {
+        for item in table {
+            let (key, value) = item?;
             let offset = w
                 .stream_position()
                 .map_err(|_| DungeonError::new("Could not get current stream position"))?;
@@ -157,10 +161,14 @@ impl SSTable {
         let other_index = std::mem::take(&mut other.index);
 
         let merged = self_index
-            .map(|(key, segment)| -> (String, Value) { (key, self.read_segment(segment).unwrap()) })
-            .chain(other_index.map(|(key, segment)| -> (String, Value) {
-                (key, other.read_segment(segment).unwrap())
-            }));
+            .map(|(key, segment)| -> DungeonResult<(String, Value)> {
+                Ok((key, self.read_segment(segment)?))
+            })
+            .chain(
+                other_index.map(|(key, segment)| -> DungeonResult<(String, Value)> {
+                    Ok((key, other.read_segment(segment)?))
+                }),
+            );
 
         Ok(Self::new(self.base_dir.clone(), new_file_name, merged)?)
     }

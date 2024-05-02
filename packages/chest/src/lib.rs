@@ -108,9 +108,11 @@ impl Chest {
         }
     }
     fn flush(&mut self) -> DungeonResult<()> {
-        let flushed = self.mem_table.flush();
+        // Maps (String, Value) into a DungeonResult<(String, Value)> so it is complatible with the
+        // `new` sstable method
+        let flushed = self.mem_table.flush().into_iter().map(|item| Ok(item));
         let file_name = generate_sstable_name();
-        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed.into_iter())?;
+        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed)?;
         if self.sstables.len() >= self.max_sstable_count {
             // Pick the oldest sstable and merge it with the new one. Since every merge result will
             // be placed at the end of the sstable list, the start will mostly have the smaller
