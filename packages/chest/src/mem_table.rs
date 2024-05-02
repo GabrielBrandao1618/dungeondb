@@ -1,8 +1,8 @@
-use std::{collections::HashMap, mem};
+use std::{collections::BTreeMap, mem};
 
 use crate::value::Value;
 
-type MemTableTable = HashMap<String, Value>;
+type MemTableTable = BTreeMap<String, Value>;
 pub struct MemTable {
     table: MemTableTable,
 }
@@ -10,7 +10,7 @@ pub struct MemTable {
 impl MemTable {
     pub fn new() -> Self {
         Self {
-            table: HashMap::new(),
+            table: Default::default(),
         }
     }
     pub fn set(&mut self, key: &str, value: Value) {
