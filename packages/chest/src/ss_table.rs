@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::value::Value;
+use crate::value::{TimeStampedValue, Value};
 
 use errors::{DungeonError, DungeonResult};
 use rmp_serde::decode::from_read;
@@ -71,7 +71,7 @@ impl SSTable {
     pub fn new(
         base_dir: PathBuf,
         file_name: String,
-        table: impl Iterator<Item = DungeonResult<(String, Value)>>,
+        table: impl Iterator<Item = DungeonResult<(String, TimeStampedValue)>>,
     ) -> DungeonResult<Self> {
         let mut index = Index::new();
 
@@ -118,7 +118,7 @@ impl SSTable {
             file_name,
         })
     }
-    fn read_segment(&self, segment: DocumentSegment) -> DungeonResult<Value> {
+    fn read_segment(&self, segment: DocumentSegment) -> DungeonResult<TimeStampedValue> {
         let data_file_path = self.base_dir.join(format!("{}.chest", self.file_name));
         let mut r = BufReader::new(
             std::fs::File::open(data_file_path)
@@ -129,11 +129,11 @@ impl SSTable {
         let mut buff = vec![0; segment.length];
         r.read_exact(&mut buff)
             .map_err(|_| DungeonError::new("Could not read data file"))?;
-        let value: Value =
+        let value: TimeStampedValue =
             from_slice(&buff).map_err(|_| DungeonError::new("Could not parse value"))?;
         Ok(value)
     }
-    pub fn get(&self, key: &str) -> DungeonResult<Option<Value>> {
+    pub fn get(&self, key: &str) -> DungeonResult<Option<TimeStampedValue>> {
         let value = self
             .index
             .get(key)
@@ -161,14 +161,16 @@ impl SSTable {
         let other_index = std::mem::take(&mut other.index);
 
         let merged = self_index
-            .map(|(key, segment)| -> DungeonResult<(String, Value)> {
-                Ok((key, self.read_segment(segment)?))
-            })
-            .chain(
-                other_index.map(|(key, segment)| -> DungeonResult<(String, Value)> {
+            .map(
+                |(key, segment)| -> DungeonResult<(String, TimeStampedValue)> {
+                    Ok((key, self.read_segment(segment)?))
+                },
+            )
+            .chain(other_index.map(
+                |(key, segment)| -> DungeonResult<(String, TimeStampedValue)> {
                     Ok((key, other.read_segment(segment)?))
-                }),
-            );
+                },
+            ));
 
         Self::new(self.base_dir.clone(), new_file_name, merged)
     }

@@ -17,7 +17,7 @@ use errors::{DungeonError, DungeonResult};
 use filter::Filter;
 use mem_table::MemTable;
 use ss_table::SSTable;
-use value::Value;
+use value::{TimeStampedValue, Value};
 
 pub struct Chest {
     dir_path: PathBuf,
@@ -83,7 +83,7 @@ impl Chest {
             filter,
         })
     }
-    pub fn set(&mut self, key: &str, value: Value) -> DungeonResult<()> {
+    pub fn set(&mut self, key: &str, value: TimeStampedValue) -> DungeonResult<()> {
         self.mem_table.set(key, value);
         self.filter.insert(key);
         if self.mem_table.size() >= self.flush_size {
@@ -91,7 +91,7 @@ impl Chest {
         }
         Ok(())
     }
-    pub fn get(&self, key: &str) -> DungeonResult<Option<Value>> {
+    pub fn get(&self, key: &str) -> DungeonResult<Option<TimeStampedValue>> {
         if !self.filter.contains(key) {
             return Ok(None);
         }
