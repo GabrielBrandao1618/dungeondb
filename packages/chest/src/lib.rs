@@ -64,7 +64,7 @@ impl Chest {
                                 .to_str()
                                 .ok_or(DungeonError::new("Could not convert file path to string"))?
                                 .to_owned(),
-                        );
+                        )?;
                         for (key, _) in sstable.index.table.iter() {
                             filter.insert(key);
                         }
@@ -110,12 +110,15 @@ impl Chest {
     fn flush(&mut self) -> DungeonResult<()> {
         let flushed = self.mem_table.flush();
         let file_name = generate_sstable_name();
-        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed.into_iter());
+        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed.into_iter())?;
         if self.sstables.len() >= self.max_sstable_count {
             // Pick the oldest sstable and merge it with the new one. Since every merge result will
             // be placed at the end of the sstable list, the start will mostly have the smaller
             // ones
-            let mut smaller = self.sstables.pop_first().unwrap();
+            let mut smaller = self
+                .sstables
+                .pop_first()
+                .ok_or(DungeonError::new("Could not get smaller sstable"))?;
             let merged = smaller.0.merge(&mut ss_table, generate_sstable_name())?;
             self.sstables.insert(OrderedByDateSSTable(merged));
             smaller.0.delete_self()?;

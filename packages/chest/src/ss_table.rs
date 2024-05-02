@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeMap,
     io::{self, BufReader, BufWriter, Read, Seek, Write},
-    os::unix::fs::MetadataExt,
     path::PathBuf,
 };
 
@@ -36,9 +35,13 @@ impl Index {
             table: BTreeMap::new(),
         }
     }
-    pub fn from_file(file_path: PathBuf) -> Self {
-        let parsed_index: Self = from_read(std::fs::File::open(file_path).unwrap()).unwrap();
-        parsed_index
+    pub fn from_file(file_path: PathBuf) -> DungeonResult<Self> {
+        let parsed_index: Self = from_read(
+            std::fs::File::open(file_path)
+                .map_err(|_| DungeonError::new("Could not open index file"))?,
+        )
+        .map_err(|_| DungeonError::new("Could not parse index file"))?;
+        Ok(parsed_index)
     }
     pub fn insert(&mut self, key: String, segment: DocumentSegment) {
         self.table.insert(key, segment);
@@ -66,41 +69,64 @@ impl SSTable {
         base_dir: PathBuf,
         file_name: String,
         table: impl Iterator<Item = (String, Value)>,
-    ) -> Self {
+    ) -> DungeonResult<Self> {
         let mut index = Index::new();
 
         let full_data_file_path = base_dir.join(format!("{file_name}.chest"));
-        let mut w = BufWriter::new(std::fs::File::create(full_data_file_path).unwrap());
+        let mut w = BufWriter::new(
+            std::fs::File::create(full_data_file_path)
+                .map_err(|_| DungeonError::new("Could not create data file"))?,
+        );
 
         for (key, value) in table {
-            let offset = w.stream_position().unwrap();
-            w.write_all(&to_vec(&value).unwrap()).unwrap();
-            let length = w.stream_position().unwrap() - offset;
+            let offset = w
+                .stream_position()
+                .map_err(|_| DungeonError::new("Could not get current stream position"))?;
+
+            w.write_all(
+                &to_vec(&value)
+                    .map_err(|_| DungeonError::new("Could not serialize value to bytes"))?,
+            )
+            .map_err(|_| DungeonError::new("Could not write to data file"))?;
+            let length = w
+                .stream_position()
+                .map_err(|_| DungeonError::new("Could not get current stream position"))?
+                - offset;
             index.insert(key, (offset as usize, length as usize).into());
         }
         let full_index_file_path = base_dir.join(format!("{file_name}.index"));
-        std::fs::write(full_index_file_path, to_vec(&index).unwrap()).unwrap();
+        std::fs::write(
+            full_index_file_path,
+            to_vec(&index).map_err(|_| DungeonError::new("Could not parse data to bytes"))?,
+        )
+        .map_err(|_| DungeonError::new("Could not save index"))?;
 
-        Self {
+        Ok(Self {
             base_dir,
             index,
             file_name,
-        }
+        })
     }
-    pub fn from_file(base_dir: PathBuf, file_name: String) -> Self {
-        Self {
-            index: Index::from_file(base_dir.join(format!("{}.index", file_name))),
+    pub fn from_file(base_dir: PathBuf, file_name: String) -> DungeonResult<Self> {
+        Ok(Self {
+            index: Index::from_file(base_dir.join(format!("{}.index", file_name)))?,
             base_dir,
             file_name,
-        }
+        })
     }
     fn read_segment(&self, segment: DocumentSegment) -> DungeonResult<Value> {
         let data_file_path = self.base_dir.join(format!("{}.chest", self.file_name));
-        let mut r = BufReader::new(std::fs::File::open(data_file_path).unwrap());
-        r.seek(io::SeekFrom::Start(segment.offset as u64)).unwrap();
+        let mut r = BufReader::new(
+            std::fs::File::open(data_file_path)
+                .map_err(|_| DungeonError::new("Could not read data file"))?,
+        );
+        r.seek(io::SeekFrom::Start(segment.offset as u64))
+            .map_err(|_| DungeonError::new("Could not access correct data location in sstable"))?;
         let mut buff = vec![0; segment.length];
-        r.read_exact(&mut buff).unwrap();
-        let value: Value = from_slice(&buff).unwrap();
+        r.read_exact(&mut buff)
+            .map_err(|_| DungeonError::new("Could not read data file"))?;
+        let value: Value =
+            from_slice(&buff).map_err(|_| DungeonError::new("Could not parse value"))?;
         Ok(value)
     }
     pub fn get(&self, key: &str) -> DungeonResult<Option<Value>> {
@@ -131,14 +157,11 @@ impl SSTable {
         let other_index = std::mem::take(&mut other.index);
 
         let merged = self_index
-            .map(|(key, segment)| (key, self.read_segment(segment).unwrap()))
-            .chain(other_index.map(|(key, segment)| (key, other.read_segment(segment).unwrap())));
+            .map(|(key, segment)| -> (String, Value) { (key, self.read_segment(segment).unwrap()) })
+            .chain(other_index.map(|(key, segment)| -> (String, Value) {
+                (key, other.read_segment(segment).unwrap())
+            }));
 
-        Ok(Self::new(self.base_dir.clone(), new_file_name, merged))
-    }
-    pub fn _data_file_size(&self) -> usize {
-        let metadata = std::fs::metadata(self.get_data_file_path())
-            .unwrap_or_else(|_| panic!("{}", self.get_data_file_path().display()));
-        metadata.size() as usize
+        Ok(Self::new(self.base_dir.clone(), new_file_name, merged)?)
     }
 }
