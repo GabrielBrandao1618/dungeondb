@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::value::TimeStampedValue;
-use itertools::{kmerge, Either, Itertools};
+use itertools::{kmerge, Either};
 
 use errors::{DungeonError, DungeonResult};
 use rmp_serde::decode::from_read;
@@ -157,15 +157,15 @@ impl SSTable {
     }
     fn segment_reader_fn<'a>(
         &'a self,
-    ) -> impl Fn((String, DocumentSegment)) -> (String, TimeStampedValue) + 'a {
-        |(key, segment)| (key, self.read_segment(segment).unwrap())
+    ) -> impl Fn((String, DocumentSegment)) -> DungeonResult<(String, TimeStampedValue)> + 'a {
+        |(key, segment)| Ok((key, self.read_segment(segment)?))
     }
     /// Merges two sstables using the k-way merge algorithm
     pub fn merge(&mut self, other: &mut Self, new_file_name: String) -> DungeonResult<Self> {
         let self_index = std::mem::take(&mut self.index);
         let other_index = std::mem::take(&mut other.index);
-        let self_values = self_index.map(self.segment_reader_fn());
-        let other_values = other_index.map(self.segment_reader_fn());
+        let self_values = self_index.map(self.segment_reader_fn()).flat_map(|v| v);
+        let other_values = other_index.map(self.segment_reader_fn()).flat_map(|v| v);
 
         let merged = kmerge(vec![Either::Left(self_values), Either::Right(other_values)]);
 
