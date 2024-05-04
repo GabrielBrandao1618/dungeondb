@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::value::TimeStampedValue;
+use itertools::{kmerge, Either, Itertools};
 
 use errors::{DungeonError, DungeonResult};
 use rmp_serde::decode::from_read;
@@ -71,7 +72,7 @@ impl SSTable {
     pub fn new(
         base_dir: PathBuf,
         file_name: String,
-        table: impl Iterator<Item = DungeonResult<(String, TimeStampedValue)>>,
+        table: impl Iterator<Item = (String, TimeStampedValue)>,
     ) -> DungeonResult<Self> {
         let mut index = Index::new();
 
@@ -81,8 +82,7 @@ impl SSTable {
                 .map_err(|_| DungeonError::new("Could not create data file"))?,
         );
 
-        for item in table {
-            let (key, value) = item?;
+        for (key, value) in table {
             let offset = w
                 .stream_position()
                 .map_err(|_| DungeonError::new("Could not get current stream position"))?;
@@ -155,22 +155,19 @@ impl SSTable {
             .map_err(|_| DungeonError::new("Could not delete index file"))?;
         Ok(())
     }
-    /// This merges two sstables using the other as the priority
+    fn segment_reader_fn<'a>(
+        &'a self,
+    ) -> impl Fn((String, DocumentSegment)) -> (String, TimeStampedValue) + 'a {
+        |(key, segment)| (key, self.read_segment(segment).unwrap())
+    }
+    /// Merges two sstables using the k-way merge algorithm
     pub fn merge(&mut self, other: &mut Self, new_file_name: String) -> DungeonResult<Self> {
         let self_index = std::mem::take(&mut self.index);
         let other_index = std::mem::take(&mut other.index);
+        let self_values = self_index.map(self.segment_reader_fn());
+        let other_values = other_index.map(self.segment_reader_fn());
 
-        let merged = self_index
-            .map(
-                |(key, segment)| -> DungeonResult<(String, TimeStampedValue)> {
-                    Ok((key, self.read_segment(segment)?))
-                },
-            )
-            .chain(other_index.map(
-                |(key, segment)| -> DungeonResult<(String, TimeStampedValue)> {
-                    Ok((key, other.read_segment(segment)?))
-                },
-            ));
+        let merged = kmerge(vec![Either::Left(self_values), Either::Right(other_values)]);
 
         Self::new(self.base_dir.clone(), new_file_name, merged)
     }

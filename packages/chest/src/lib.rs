@@ -110,7 +110,7 @@ impl Chest {
     fn flush(&mut self) -> DungeonResult<()> {
         // Maps (String, Value) into a DungeonResult<(String, Value)> so it is complatible with the
         // `new` sstable method
-        let flushed = self.mem_table.flush().into_iter().map(Ok);
+        let flushed = self.mem_table.flush().into_iter();
         let file_name = generate_sstable_name();
         let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed)?;
         if self.sstables.len() >= self.max_sstable_count {

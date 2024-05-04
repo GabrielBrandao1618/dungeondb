@@ -26,3 +26,15 @@ impl TimeStampedValue {
         }
     }
 }
+
+impl Ord for TimeStampedValue {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.timestamp.cmp(&other.timestamp)
+    }
+}
+impl PartialOrd for TimeStampedValue {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.timestamp.cmp(&other.timestamp))
+    }
+}
+impl Eq for TimeStampedValue {}
