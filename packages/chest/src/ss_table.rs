@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     io::{self, BufReader, BufWriter, Read, Seek, Write},
+    iter::Peekable,
     path::PathBuf,
 };
 
@@ -72,7 +73,7 @@ impl SSTable {
     pub fn new(
         base_dir: PathBuf,
         file_name: String,
-        table: impl Iterator<Item = (String, TimeStampedValue)>,
+        mut table: Peekable<impl Iterator<Item = (String, TimeStampedValue)>>,
     ) -> DungeonResult<Self> {
         let mut index = Index::new();
 
@@ -81,22 +82,34 @@ impl SSTable {
             std::fs::File::create(full_data_file_path)
                 .map_err(|_| DungeonError::new("Could not create data file"))?,
         );
+        let mut current_offset = 0;
 
-        for (key, value) in table {
-            let offset = w
-                .stream_position()
-                .map_err(|_| DungeonError::new("Could not get current stream position"))?;
+        while let Some((key, value)) = table.next() {
+            if let Some((next_key, next_val)) = table.next() {
+                // Check if the next value uses the same key as the current. That can happen when
+                // merging two SSTables.
+                if next_key == key {
+                    let length = match value.timestamp.cmp(&next_val.timestamp) {
+                        std::cmp::Ordering::Less => Self::write_entry(&mut w, &next_val)?,
+                        std::cmp::Ordering::Equal => Self::write_entry(&mut w, &value)?,
+                        std::cmp::Ordering::Greater => Self::write_entry(&mut w, &value)?,
+                    };
+                    index.insert(key, (current_offset, length).into());
+                    current_offset += length;
+                } else {
+                    let length = Self::write_entry(&mut w, &value)?;
+                    index.insert(key, (current_offset, length).into());
+                    current_offset += length;
 
-            w.write_all(
-                &to_vec(&value)
-                    .map_err(|_| DungeonError::new("Could not serialize value to bytes"))?,
-            )
-            .map_err(|_| DungeonError::new("Could not write to data file"))?;
-            let length = w
-                .stream_position()
-                .map_err(|_| DungeonError::new("Could not get current stream position"))?
-                - offset;
-            index.insert(key, (offset as usize, length as usize).into());
+                    let length = Self::write_entry(&mut w, &next_val)?;
+                    index.insert(next_key, (current_offset, length).into());
+                    current_offset += length;
+                }
+            } else {
+                let length = Self::write_entry(&mut w, &value)?;
+                index.insert(key, (current_offset, length).into());
+                current_offset += length;
+            }
         }
         let full_index_file_path = base_dir.join(format!("{file_name}.index"));
         std::fs::write(
@@ -110,6 +123,13 @@ impl SSTable {
             index,
             file_name,
         })
+    }
+    fn write_entry<W: Write + Seek>(w: &mut W, entry: &TimeStampedValue) -> DungeonResult<usize> {
+        let parsed = to_vec(entry).map_err(|_| DungeonError::new("Could not parse value"))?;
+        w.write_all(&parsed)
+            .map_err(|_| DungeonError::new("Could not write to data file"))?;
+
+        Ok(parsed.len())
     }
     pub fn from_file(base_dir: PathBuf, file_name: String) -> DungeonResult<Self> {
         Ok(Self {
@@ -169,6 +189,6 @@ impl SSTable {
 
         let merged = kmerge(vec![Either::Left(self_values), Either::Right(other_values)]);
 
-        Self::new(self.base_dir.clone(), new_file_name, merged)
+        Self::new(self.base_dir.clone(), new_file_name, merged.peekable())
     }
 }

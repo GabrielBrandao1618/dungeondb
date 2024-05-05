@@ -12,8 +12,8 @@ pub enum Value {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TimeStampedValue {
-    timestamp: u128,
-    value: Value,
+    pub timestamp: u128,
+    pub value: Value,
 }
 
 impl TimeStampedValue {

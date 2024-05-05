@@ -112,7 +112,7 @@ impl Chest {
         // `new` sstable method
         let flushed = self.mem_table.flush().into_iter();
         let file_name = generate_sstable_name();
-        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed)?;
+        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed.peekable())?;
         if self.sstables.len() >= self.max_sstable_count {
             // Pick the oldest sstable and merge it with the new one. Since every merge result will
             // be placed at the end of the sstable list, the start will mostly have the smaller

@@ -66,13 +66,27 @@ fn test_read_from_sstable() {
         Box::new(BloomFilter::default()),
     )
     .unwrap();
-    let val1 = TimeStampedValue::new(Value::String("bar".to_string()));
-    chest.set("foo", val1.clone()).unwrap();
-    let val2 = TimeStampedValue::new(Value::String("bar2".to_string()));
-    chest.set("foo2", val2.clone()).unwrap();
+    chest
+        .set(
+            "foo",
+            TimeStampedValue::new(Value::String("bar".to_string())),
+        )
+        .unwrap();
+    chest
+        .set(
+            "foo2",
+            TimeStampedValue::new(Value::String("bar2".to_string())),
+        )
+        .unwrap();
     assert_eq!(chest.len(), 0);
-    assert_eq!(chest.get("foo").unwrap(), Some(val1));
-    assert_eq!(chest.get("foo2").unwrap(), Some(val2));
+    assert_eq!(
+        chest.get("foo").unwrap().unwrap().value,
+        Value::String("bar".to_owned())
+    );
+    assert_eq!(
+        chest.get("foo2").unwrap().unwrap().value,
+        Value::String("bar2".to_owned())
+    );
 }
 
 #[test]
@@ -109,14 +123,18 @@ fn test_merge_sstables() {
         Box::new(BloomFilter::default()),
     )
     .unwrap();
-    let val = TimeStampedValue::new(Value::String("barz".to_string()));
     chest
         .set(
             "foo",
             TimeStampedValue::new(Value::String("bar".to_string())),
         )
         .unwrap();
-    chest.set("foo", val.clone()).unwrap();
+    chest
+        .set(
+            "foo",
+            TimeStampedValue::new(Value::String("barz".to_string())),
+        )
+        .unwrap();
 
     let mut iter_chest_sstables = chest.sstables.iter().cloned();
     let mut table1 = iter_chest_sstables.next().unwrap();
@@ -126,7 +144,10 @@ fn test_merge_sstables() {
         .0
         .merge(&mut table2.0, generate_sstable_name())
         .unwrap();
-    assert_eq!(merged.get("foo").unwrap(), Some(val));
+    assert_eq!(
+        merged.get("foo").unwrap().unwrap().value,
+        Value::String("barz".to_owned())
+    );
 }
 
 #[test]
@@ -139,13 +160,15 @@ fn test_merge_sstables_on_limit() {
         Box::new(BloomFilter::default()),
     )
     .unwrap();
-    let val1 = TimeStampedValue::new(Value::Integer(1));
-    let val2 = TimeStampedValue::new(Value::Integer(2));
-    chest.set("foo", val1.clone()).unwrap();
-    chest.set("bar", val2.clone()).unwrap();
+    chest
+        .set("foo", TimeStampedValue::new(Value::Integer(1)))
+        .unwrap();
+    chest
+        .set("bar", TimeStampedValue::new(Value::Integer(2)))
+        .unwrap();
     assert_eq!(chest.sstables.len(), 1);
-    assert_eq!(chest.get("foo").unwrap(), Some(val1));
-    assert_eq!(chest.get("bar").unwrap(), Some(val2));
+    assert_eq!(chest.get("foo").unwrap().unwrap().value, Value::Integer(1));
+    assert_eq!(chest.get("bar").unwrap().unwrap().value, Value::Integer(2));
 }
 #[test]
 fn test_overwrite_on_merge() {
@@ -157,15 +180,18 @@ fn test_overwrite_on_merge() {
         Box::new(BloomFilter::default()),
     )
     .unwrap();
-    let val = TimeStampedValue::new(Value::Integer(1));
-    chest.set("foo", val).unwrap();
-    let val = TimeStampedValue::new(Value::Integer(6));
-    chest.set("foo", val.clone()).unwrap();
+    chest
+        .set("foo", TimeStampedValue::new(Value::Integer(1)))
+        .unwrap();
+    chest
+        .set("foo", TimeStampedValue::new(Value::Integer(6)))
+        .unwrap();
     assert_eq!(chest.sstables.len(), 1);
-    assert_eq!(chest.get("foo").unwrap(), Some(val));
-    let val = TimeStampedValue::new(Value::Integer(4));
-    chest.set("foo", val.clone()).unwrap();
-    assert_eq!(chest.get("foo").unwrap(), Some(val));
+    assert_eq!(chest.get("foo").unwrap().unwrap().value, Value::Integer(1));
+    chest
+        .set("foo", TimeStampedValue::new(Value::Integer(4)))
+        .unwrap();
+    assert_eq!(chest.get("foo").unwrap().unwrap().value, Value::Integer(4));
 }
 #[test]
 fn merging_delete_old_sstables() {
@@ -177,10 +203,12 @@ fn merging_delete_old_sstables() {
         Box::new(BloomFilter::default()),
     )
     .unwrap();
-    let val1 = TimeStampedValue::new(Value::Integer(1));
-    let val2 = TimeStampedValue::new(Value::Integer(2));
-    chest.set("foo", val1.clone()).unwrap();
-    chest.set("bar", val2.clone()).unwrap();
+    chest
+        .set("foo", TimeStampedValue::new(Value::Integer(1)))
+        .unwrap();
+    chest
+        .set("bar", TimeStampedValue::new(Value::Integer(2)))
+        .unwrap();
     drop(chest);
     let chest = Chest::new(
         chest_dir.to_str().unwrap(),
@@ -190,6 +218,6 @@ fn merging_delete_old_sstables() {
     )
     .unwrap();
     assert_eq!(chest.sstables.len(), 1);
-    assert_eq!(chest.get("foo").unwrap(), Some(val1));
-    assert_eq!(chest.get("bar").unwrap(), Some(val2));
+    assert_eq!(chest.get("foo").unwrap().unwrap().value, Value::Integer(1));
+    assert_eq!(chest.get("bar").unwrap().unwrap().value, Value::Integer(2));
 }
