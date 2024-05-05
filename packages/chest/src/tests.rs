@@ -187,7 +187,7 @@ fn test_overwrite_on_merge() {
         .set("foo", TimeStampedValue::new(Value::Integer(6)))
         .unwrap();
     assert_eq!(chest.sstables.len(), 1);
-    assert_eq!(chest.get("foo").unwrap().unwrap().value, Value::Integer(1));
+    assert_eq!(chest.get("foo").unwrap().unwrap().value, Value::Integer(6));
     chest
         .set("foo", TimeStampedValue::new(Value::Integer(4)))
         .unwrap();

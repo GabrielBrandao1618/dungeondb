@@ -15,7 +15,7 @@ use rmp_serde::from_slice;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct DocumentSegment {
     offset: usize,
     length: usize,
@@ -27,7 +27,7 @@ impl From<(usize, usize)> for DocumentSegment {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct Index {
     pub table: BTreeMap<String, DocumentSegment>,
 }
@@ -185,9 +185,9 @@ impl SSTable {
         let self_index = std::mem::take(&mut self.index);
         let other_index = std::mem::take(&mut other.index);
         let self_values = self_index.map(self.segment_reader_fn()).flat_map(|v| v);
-        let other_values = other_index.map(self.segment_reader_fn()).flat_map(|v| v);
+        let other_values = other_index.map(other.segment_reader_fn()).flat_map(|v| v);
 
-        let merged = kmerge(vec![Either::Left(self_values), Either::Right(other_values)]);
+        let merged = kmerge(vec![Either::Right(self_values), Either::Left(other_values)]);
 
         Self::new(self.base_dir.clone(), new_file_name, merged.peekable())
     }
