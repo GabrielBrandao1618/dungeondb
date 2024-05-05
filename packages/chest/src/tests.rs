@@ -29,9 +29,16 @@ fn memtable_set_get() {
         Box::new(BloomFilter::default()),
     )
     .unwrap();
-    let val1 = TimeStampedValue::new(Value::String("John Doe".to_owned()));
-    chest.set("name", val1.clone()).unwrap();
-    assert_eq!(chest.get("name").unwrap(), Some(val1));
+    chest
+        .set(
+            "name",
+            TimeStampedValue::new(Value::String("John Doe".to_owned())),
+        )
+        .unwrap();
+    assert_eq!(
+        chest.get("name").unwrap().unwrap().value,
+        Value::String("John Doe".to_owned())
+    );
 }
 
 #[test]
@@ -99,9 +106,13 @@ fn test_reinitialize_chest() {
         Box::new(BloomFilter::default()),
     )
     .unwrap();
-    let val1 = TimeStampedValue::new(Value::String("bar".to_owned()));
 
-    chest.set("foo", val1.clone()).unwrap();
+    chest
+        .set(
+            "foo",
+            TimeStampedValue::new(Value::String("bar".to_owned())),
+        )
+        .unwrap();
     drop(chest);
 
     let chest2 = Chest::new(
@@ -111,7 +122,10 @@ fn test_reinitialize_chest() {
         Box::new(BloomFilter::default()),
     )
     .unwrap();
-    assert_eq!(chest2.get("foo").unwrap(), Some(val1));
+    assert_eq!(
+        chest2.get("foo").unwrap().unwrap().value,
+        Value::String("bar".to_owned())
+    );
 }
 #[test]
 fn test_merge_sstables() {
