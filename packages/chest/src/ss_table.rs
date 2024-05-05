@@ -175,17 +175,17 @@ impl SSTable {
             .map_err(|_| DungeonError::new("Could not delete index file"))?;
         Ok(())
     }
-    fn segment_reader_fn<'a>(
-        &'a self,
-    ) -> impl Fn((String, DocumentSegment)) -> DungeonResult<(String, TimeStampedValue)> + 'a {
+    fn segment_reader_fn(
+        &self,
+    ) -> impl Fn((String, DocumentSegment)) -> DungeonResult<(String, TimeStampedValue)> + '_ {
         |(key, segment)| Ok((key, self.read_segment(segment)?))
     }
     /// Merges two sstables using the k-way merge algorithm
     pub fn merge(&mut self, other: &mut Self, new_file_name: String) -> DungeonResult<Self> {
         let self_index = std::mem::take(&mut self.index);
         let other_index = std::mem::take(&mut other.index);
-        let self_values = self_index.map(self.segment_reader_fn()).flat_map(|v| v);
-        let other_values = other_index.map(other.segment_reader_fn()).flat_map(|v| v);
+        let self_values = self_index.flat_map(self.segment_reader_fn());
+        let other_values = other_index.flat_map(other.segment_reader_fn());
 
         let merged = kmerge(vec![Either::Right(self_values), Either::Left(other_values)]);
 
