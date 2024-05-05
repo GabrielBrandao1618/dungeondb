@@ -1,10 +1,12 @@
 use std::{
     collections::BTreeMap,
     io::{self, BufReader, BufWriter, Read, Seek, Write},
+    iter::Peekable,
     path::PathBuf,
 };
 
-use crate::value::Value;
+use crate::value::TimeStampedValue;
+use itertools::{kmerge, Either};
 
 use errors::{DungeonError, DungeonResult};
 use rmp_serde::decode::from_read;
@@ -13,7 +15,7 @@ use rmp_serde::from_slice;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct DocumentSegment {
     offset: usize,
     length: usize,
@@ -25,7 +27,7 @@ impl From<(usize, usize)> for DocumentSegment {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct Index {
     pub table: BTreeMap<String, DocumentSegment>,
 }
@@ -71,7 +73,7 @@ impl SSTable {
     pub fn new(
         base_dir: PathBuf,
         file_name: String,
-        table: impl Iterator<Item = DungeonResult<(String, Value)>>,
+        mut table: Peekable<impl Iterator<Item = (String, TimeStampedValue)>>,
     ) -> DungeonResult<Self> {
         let mut index = Index::new();
 
@@ -80,23 +82,34 @@ impl SSTable {
             std::fs::File::create(full_data_file_path)
                 .map_err(|_| DungeonError::new("Could not create data file"))?,
         );
+        let mut current_offset = 0;
 
-        for item in table {
-            let (key, value) = item?;
-            let offset = w
-                .stream_position()
-                .map_err(|_| DungeonError::new("Could not get current stream position"))?;
+        while let Some((key, value)) = table.next() {
+            if let Some((next_key, next_val)) = table.next() {
+                // Check if the next value uses the same key as the current. That can happen when
+                // merging two SSTables.
+                if next_key == key {
+                    let length = match value.timestamp.cmp(&next_val.timestamp) {
+                        std::cmp::Ordering::Less => Self::write_entry(&mut w, &next_val)?,
+                        std::cmp::Ordering::Equal => Self::write_entry(&mut w, &value)?,
+                        std::cmp::Ordering::Greater => Self::write_entry(&mut w, &value)?,
+                    };
+                    index.insert(key, (current_offset, length).into());
+                    current_offset += length;
+                } else {
+                    let length = Self::write_entry(&mut w, &value)?;
+                    index.insert(key, (current_offset, length).into());
+                    current_offset += length;
 
-            w.write_all(
-                &to_vec(&value)
-                    .map_err(|_| DungeonError::new("Could not serialize value to bytes"))?,
-            )
-            .map_err(|_| DungeonError::new("Could not write to data file"))?;
-            let length = w
-                .stream_position()
-                .map_err(|_| DungeonError::new("Could not get current stream position"))?
-                - offset;
-            index.insert(key, (offset as usize, length as usize).into());
+                    let length = Self::write_entry(&mut w, &next_val)?;
+                    index.insert(next_key, (current_offset, length).into());
+                    current_offset += length;
+                }
+            } else {
+                let length = Self::write_entry(&mut w, &value)?;
+                index.insert(key, (current_offset, length).into());
+                current_offset += length;
+            }
         }
         let full_index_file_path = base_dir.join(format!("{file_name}.index"));
         std::fs::write(
@@ -111,6 +124,13 @@ impl SSTable {
             file_name,
         })
     }
+    fn write_entry<W: Write + Seek>(w: &mut W, entry: &TimeStampedValue) -> DungeonResult<usize> {
+        let parsed = to_vec(entry).map_err(|_| DungeonError::new("Could not parse value"))?;
+        w.write_all(&parsed)
+            .map_err(|_| DungeonError::new("Could not write to data file"))?;
+
+        Ok(parsed.len())
+    }
     pub fn from_file(base_dir: PathBuf, file_name: String) -> DungeonResult<Self> {
         Ok(Self {
             index: Index::from_file(base_dir.join(format!("{}.index", file_name)))?,
@@ -118,7 +138,7 @@ impl SSTable {
             file_name,
         })
     }
-    fn read_segment(&self, segment: DocumentSegment) -> DungeonResult<Value> {
+    fn read_segment(&self, segment: DocumentSegment) -> DungeonResult<TimeStampedValue> {
         let data_file_path = self.base_dir.join(format!("{}.chest", self.file_name));
         let mut r = BufReader::new(
             std::fs::File::open(data_file_path)
@@ -129,11 +149,11 @@ impl SSTable {
         let mut buff = vec![0; segment.length];
         r.read_exact(&mut buff)
             .map_err(|_| DungeonError::new("Could not read data file"))?;
-        let value: Value =
+        let value: TimeStampedValue =
             from_slice(&buff).map_err(|_| DungeonError::new("Could not parse value"))?;
         Ok(value)
     }
-    pub fn get(&self, key: &str) -> DungeonResult<Option<Value>> {
+    pub fn get(&self, key: &str) -> DungeonResult<Option<TimeStampedValue>> {
         let value = self
             .index
             .get(key)
@@ -155,21 +175,20 @@ impl SSTable {
             .map_err(|_| DungeonError::new("Could not delete index file"))?;
         Ok(())
     }
-    /// This merges two sstables using the other as the priority
+    fn segment_reader_fn<'a>(
+        &'a self,
+    ) -> impl Fn((String, DocumentSegment)) -> DungeonResult<(String, TimeStampedValue)> + 'a {
+        |(key, segment)| Ok((key, self.read_segment(segment)?))
+    }
+    /// Merges two sstables using the k-way merge algorithm
     pub fn merge(&mut self, other: &mut Self, new_file_name: String) -> DungeonResult<Self> {
         let self_index = std::mem::take(&mut self.index);
         let other_index = std::mem::take(&mut other.index);
+        let self_values = self_index.map(self.segment_reader_fn()).flat_map(|v| v);
+        let other_values = other_index.map(other.segment_reader_fn()).flat_map(|v| v);
 
-        let merged = self_index
-            .map(|(key, segment)| -> DungeonResult<(String, Value)> {
-                Ok((key, self.read_segment(segment)?))
-            })
-            .chain(
-                other_index.map(|(key, segment)| -> DungeonResult<(String, Value)> {
-                    Ok((key, other.read_segment(segment)?))
-                }),
-            );
+        let merged = kmerge(vec![Either::Right(self_values), Either::Left(other_values)]);
 
-        Self::new(self.base_dir.clone(), new_file_name, merged)
+        Self::new(self.base_dir.clone(), new_file_name, merged.peekable())
     }
 }

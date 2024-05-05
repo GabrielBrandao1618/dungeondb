@@ -17,7 +17,7 @@ use errors::{DungeonError, DungeonResult};
 use filter::Filter;
 use mem_table::MemTable;
 use ss_table::SSTable;
-use value::Value;
+use value::TimeStampedValue;
 
 pub struct Chest {
     dir_path: PathBuf,
@@ -83,7 +83,7 @@ impl Chest {
             filter,
         })
     }
-    pub fn set(&mut self, key: &str, value: Value) -> DungeonResult<()> {
+    pub fn set(&mut self, key: &str, value: TimeStampedValue) -> DungeonResult<()> {
         self.mem_table.set(key, value);
         self.filter.insert(key);
         if self.mem_table.size() >= self.flush_size {
@@ -91,7 +91,7 @@ impl Chest {
         }
         Ok(())
     }
-    pub fn get(&self, key: &str) -> DungeonResult<Option<Value>> {
+    pub fn get(&self, key: &str) -> DungeonResult<Option<TimeStampedValue>> {
         if !self.filter.contains(key) {
             return Ok(None);
         }
@@ -110,9 +110,9 @@ impl Chest {
     fn flush(&mut self) -> DungeonResult<()> {
         // Maps (String, Value) into a DungeonResult<(String, Value)> so it is complatible with the
         // `new` sstable method
-        let flushed = self.mem_table.flush().into_iter().map(Ok);
+        let flushed = self.mem_table.flush().into_iter();
         let file_name = generate_sstable_name();
-        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed)?;
+        let mut ss_table = SSTable::new(self.dir_path.clone(), file_name, flushed.peekable())?;
         if self.sstables.len() >= self.max_sstable_count {
             // Pick the oldest sstable and merge it with the new one. Since every merge result will
             // be placed at the end of the sstable list, the start will mostly have the smaller

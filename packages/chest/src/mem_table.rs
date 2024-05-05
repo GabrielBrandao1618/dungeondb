@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, mem};
 
-use crate::value::Value;
+use crate::value::TimeStampedValue;
 
-type MemTableTable = BTreeMap<String, Value>;
+type MemTableTable = BTreeMap<String, TimeStampedValue>;
 pub struct MemTable {
     table: MemTableTable,
 }
@@ -13,10 +13,10 @@ impl MemTable {
             table: Default::default(),
         }
     }
-    pub fn set(&mut self, key: &str, value: Value) {
+    pub fn set(&mut self, key: &str, value: TimeStampedValue) {
         self.table.insert(key.to_owned(), value);
     }
-    pub fn get(&self, key: &str) -> Option<Value> {
+    pub fn get(&self, key: &str) -> Option<TimeStampedValue> {
         self.table.get(key).cloned()
     }
     pub fn flush(&mut self) -> MemTableTable {
