@@ -88,26 +88,49 @@ impl SSTable {
                 // Check if the next value uses the same key as the current. That can happen when
                 // merging two SSTables.
                 if next_key == key {
-                    let length = match value.timestamp.cmp(&next_val.timestamp) {
-                        std::cmp::Ordering::Less => Self::write_entry(&mut w, &next_val)?,
-                        std::cmp::Ordering::Equal => Self::write_entry(&mut w, &value)?,
-                        std::cmp::Ordering::Greater => Self::write_entry(&mut w, &value)?,
+                    match value.timestamp.cmp(&next_val.timestamp) {
+                        std::cmp::Ordering::Less => {
+                            current_offset = Self::write_and_index(
+                                &mut w,
+                                next_key,
+                                &next_val,
+                                &mut index,
+                                current_offset,
+                            )?;
+                        }
+                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
+                            if value.alive {
+                                current_offset = Self::write_and_index(
+                                    &mut w,
+                                    key,
+                                    &value,
+                                    &mut index,
+                                    current_offset,
+                                )?;
+                            }
+                        }
                     };
-                    index.insert(key, (current_offset, length).into());
-                    current_offset += length;
                 } else {
-                    let length = Self::write_entry(&mut w, &value)?;
-                    index.insert(key, (current_offset, length).into());
-                    current_offset += length;
+                    if value.alive {
+                        current_offset =
+                            Self::write_and_index(&mut w, key, &value, &mut index, current_offset)?;
+                    }
 
-                    let length = Self::write_entry(&mut w, &next_val)?;
-                    index.insert(next_key, (current_offset, length).into());
-                    current_offset += length;
+                    if next_val.alive {
+                        current_offset = Self::write_and_index(
+                            &mut w,
+                            next_key,
+                            &next_val,
+                            &mut index,
+                            current_offset,
+                        )?;
+                    }
                 }
             } else {
-                let length = Self::write_entry(&mut w, &value)?;
-                index.insert(key, (current_offset, length).into());
-                current_offset += length;
+                if value.alive {
+                    current_offset =
+                        Self::write_and_index(&mut w, key, &value, &mut index, current_offset)?;
+                }
             }
         }
         let full_index_file_path = base_dir.join(format!("{file_name}.index"));
@@ -129,6 +152,18 @@ impl SSTable {
             .map_err(|_| Error::new("Could not write to data file"))?;
 
         Ok(parsed.len())
+    }
+    fn write_and_index<W: Write + Seek>(
+        w: &mut W,
+        key: String,
+        entry: &TimeStampedValue,
+        index: &mut Index,
+        mut current_offset: usize,
+    ) -> Result<usize> {
+        let length = Self::write_entry(w, &entry)?;
+        index.insert(key, (current_offset, length).into());
+        current_offset += length;
+        Ok(current_offset)
     }
     pub fn from_file(base_dir: PathBuf, file_name: String) -> Result<Self> {
         Ok(Self {

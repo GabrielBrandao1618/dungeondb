@@ -14,6 +14,7 @@ pub enum Value {
 pub struct TimeStampedValue {
     pub timestamp: u128,
     pub value: Value,
+    pub alive: bool,
 }
 
 impl TimeStampedValue {
@@ -23,6 +24,7 @@ impl TimeStampedValue {
         Self {
             timestamp: ellapsed.as_nanos(),
             value,
+            alive: true,
         }
     }
 }
