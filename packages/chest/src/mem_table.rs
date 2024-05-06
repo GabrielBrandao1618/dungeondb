@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, mem};
 use crate::value::TimeStampedValue;
 
 type MemTableTable = BTreeMap<String, TimeStampedValue>;
+#[derive(Debug)]
 pub struct MemTable {
     table: MemTableTable,
 }

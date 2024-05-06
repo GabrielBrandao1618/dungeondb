@@ -235,3 +235,48 @@ fn merging_delete_old_sstables() {
     assert_eq!(chest.get("foo").unwrap().unwrap().value, Value::Integer(1));
     assert_eq!(chest.get("bar").unwrap().unwrap().value, Value::Integer(2));
 }
+
+#[test]
+fn test_delete_value() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        4,
+        1,
+        Box::new(BloomFilter::default()),
+    )
+    .unwrap();
+    chest
+        .set("count", TimeStampedValue::new(Value::Integer(0)))
+        .unwrap();
+    chest
+        .set("count", TimeStampedValue::new(Value::Integer(1)))
+        .unwrap();
+    assert_eq!(
+        chest.get("count").unwrap().unwrap().value,
+        Value::Integer(1)
+    );
+    chest.delete("count").unwrap();
+    assert_eq!(chest.get("count").unwrap(), None);
+}
+
+#[test]
+fn test_delete_from_sstable() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        1,
+        Box::new(BloomFilter::default()),
+    )
+    .unwrap();
+    chest
+        .set("count", TimeStampedValue::new(Value::Integer(0)))
+        .unwrap();
+    assert_eq!(
+        chest.get("count").unwrap().unwrap().value,
+        Value::Integer(0)
+    );
+    chest.delete("count").unwrap();
+    assert_eq!(chest.get("count").unwrap(), None);
+}

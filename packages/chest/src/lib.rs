@@ -19,6 +19,8 @@ use mem_table::MemTable;
 use ss_table::SSTable;
 use value::TimeStampedValue;
 
+use crate::value::Value;
+
 pub struct Chest {
     dir_path: PathBuf,
     mem_table: MemTable,
@@ -99,13 +101,25 @@ impl Chest {
             None => {
                 for sstable in &self.sstables {
                     if let Some(found) = sstable.0.get(key)? {
+                        if found.value == Value::Invalid {
+                            return Ok(None);
+                        }
                         return Ok(Some(found));
                     }
                 }
                 Ok(None)
             }
-            default => Ok(default),
+            Some(default) => {
+                if default.value == Value::Invalid {
+                    return Ok(None);
+                }
+                Ok(Some(default))
+            }
         }
+    }
+    pub fn delete(&mut self, key: &str) -> Result<()> {
+        self.set(key, TimeStampedValue::new(Value::Invalid))?;
+        Ok(())
     }
     fn flush(&mut self) -> Result<()> {
         // Maps (String, Value) into a DungeonResult<(String, Value)> so it is complatible with the
@@ -147,13 +161,21 @@ impl OrderedByDateSSTable {
 impl PartialOrd for OrderedByDateSSTable {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         // The more recent sstable is in the end in terms of ordering
-        Some(self.get_date_milis().cmp(&other.get_date_milis()))
+        Some(match self.get_date_milis().cmp(&other.get_date_milis()) {
+            Ordering::Less => Ordering::Greater,
+            Ordering::Equal => Ordering::Equal,
+            Ordering::Greater => Ordering::Less,
+        })
     }
 }
 impl Ord for OrderedByDateSSTable {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // The more recent sstable is in the end in terms of ordering
-        self.get_date_milis().cmp(&other.get_date_milis())
+        match self.get_date_milis().cmp(&other.get_date_milis()) {
+            Ordering::Less => Ordering::Greater,
+            Ordering::Equal => Ordering::Equal,
+            Ordering::Greater => Ordering::Less,
+        }
     }
 }
 impl Eq for OrderedByDateSSTable {}

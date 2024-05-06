@@ -8,13 +8,13 @@ pub enum Value {
     Float(f64),
     String(String),
     Boolean(bool),
+    Invalid,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TimeStampedValue {
     pub timestamp: u128,
     pub value: Value,
-    pub alive: bool,
 }
 
 impl TimeStampedValue {
@@ -24,7 +24,6 @@ impl TimeStampedValue {
         Self {
             timestamp: ellapsed.as_nanos(),
             value,
-            alive: true,
         }
     }
 }

@@ -99,38 +99,30 @@ impl SSTable {
                             )?;
                         }
                         std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
-                            if value.alive {
-                                current_offset = Self::write_and_index(
-                                    &mut w,
-                                    key,
-                                    &value,
-                                    &mut index,
-                                    current_offset,
-                                )?;
-                            }
+                            current_offset = Self::write_and_index(
+                                &mut w,
+                                key,
+                                &value,
+                                &mut index,
+                                current_offset,
+                            )?;
                         }
                     };
                 } else {
-                    if value.alive {
-                        current_offset =
-                            Self::write_and_index(&mut w, key, &value, &mut index, current_offset)?;
-                    }
-
-                    if next_val.alive {
-                        current_offset = Self::write_and_index(
-                            &mut w,
-                            next_key,
-                            &next_val,
-                            &mut index,
-                            current_offset,
-                        )?;
-                    }
-                }
-            } else {
-                if value.alive {
                     current_offset =
                         Self::write_and_index(&mut w, key, &value, &mut index, current_offset)?;
+
+                    current_offset = Self::write_and_index(
+                        &mut w,
+                        next_key,
+                        &next_val,
+                        &mut index,
+                        current_offset,
+                    )?;
                 }
+            } else {
+                current_offset =
+                    Self::write_and_index(&mut w, key, &value, &mut index, current_offset)?;
             }
         }
         let full_index_file_path = base_dir.join(format!("{file_name}.index"));
