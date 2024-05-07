@@ -152,7 +152,7 @@ impl SSTable {
         index: &mut Index,
         mut current_offset: usize,
     ) -> Result<usize> {
-        let length = Self::write_entry(w, &entry)?;
+        let length = Self::write_entry(w, entry)?;
         index.insert(key, (current_offset, length).into());
         current_offset += length;
         Ok(current_offset)
