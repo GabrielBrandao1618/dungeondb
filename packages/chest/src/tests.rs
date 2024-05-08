@@ -319,5 +319,32 @@ fn test_clean_sstable() {
     let metadata = std::fs::metadata(data_file_path).unwrap();
     let file_size = metadata.size();
     assert_eq!(expected_size as u64, file_size);
-    assert!(false);
+}
+#[test]
+fn keys_are_sorted() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        1,
+        Box::new(BloomFilter::default()),
+    )
+    .unwrap();
+    chest
+        .set("grape", TimeStampedValue::new(Value::Integer(0)))
+        .unwrap();
+    chest
+        .set("apple", TimeStampedValue::new(Value::Integer(1)))
+        .unwrap();
+    chest
+        .set("peach", TimeStampedValue::new(Value::Integer(2)))
+        .unwrap();
+    chest
+        .set("orange", TimeStampedValue::new(Value::Integer(3)))
+        .unwrap();
+    let mut table = chest.sstables.clone().into_iter().next().unwrap().0;
+    assert_eq!(table.index.next().unwrap().0, "apple".to_owned());
+    assert_eq!(table.index.next().unwrap().0, "grape".to_owned());
+    assert_eq!(table.index.next().unwrap().0, "orange".to_owned());
+    assert_eq!(table.index.next().unwrap().0, "peach".to_owned());
 }
