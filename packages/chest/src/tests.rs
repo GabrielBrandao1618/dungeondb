@@ -1,4 +1,7 @@
+use std::os::unix::fs::MetadataExt;
+
 use cuid::cuid2;
+use rmp_serde::to_vec;
 
 use crate::{filter::bloom::BloomFilter, value::Value};
 
@@ -279,4 +282,42 @@ fn test_delete_from_sstable() {
     );
     chest.delete("count").unwrap();
     assert_eq!(chest.get("count").unwrap(), None);
+}
+
+#[test]
+fn test_clean_sstable() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        1,
+        Box::new(BloomFilter::default()),
+    )
+    .unwrap();
+    chest
+        .set("foo", TimeStampedValue::new(Value::Integer(0)))
+        .unwrap();
+    chest
+        .set("foo", TimeStampedValue::new(Value::Integer(1)))
+        .unwrap();
+    assert_eq!(chest.get("foo").unwrap().unwrap().value, Value::Integer(1));
+    chest
+        .set("bar", TimeStampedValue::new(Value::Float(1.5)))
+        .unwrap();
+    chest
+        .set("bar", TimeStampedValue::new(Value::Float(3.5)))
+        .unwrap();
+    assert_eq!(chest.sstables.len(), 1);
+    let expected_size = to_vec(&TimeStampedValue::new(Value::Integer(1)))
+        .unwrap()
+        .len()
+        + to_vec(&TimeStampedValue::new(Value::Float(3.5)))
+            .unwrap()
+            .len();
+    let table = &chest.sstables.iter().next().unwrap().0;
+    let data_file_path = table.get_data_file_path();
+    let metadata = std::fs::metadata(data_file_path).unwrap();
+    let file_size = metadata.size();
+    assert_eq!(expected_size as u64, file_size);
+    assert!(false);
 }
