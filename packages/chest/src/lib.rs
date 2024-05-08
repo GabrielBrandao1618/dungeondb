@@ -161,11 +161,7 @@ impl OrderedByDateSSTable {
 impl PartialOrd for OrderedByDateSSTable {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         // The more recent sstable is in the end in terms of ordering
-        Some(match self.get_date_milis().cmp(&other.get_date_milis()) {
-            Ordering::Less => Ordering::Greater,
-            Ordering::Equal => Ordering::Equal,
-            Ordering::Greater => Ordering::Less,
-        })
+        Some(self.cmp(other))
     }
 }
 impl Ord for OrderedByDateSSTable {
