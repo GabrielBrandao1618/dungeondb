@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::value::TimeStampedValue;
+use crate::value::{TimeStampedValue, Value};
 use itertools::{kmerge, Either};
 
 use errors::{Error, Result};
@@ -48,7 +48,8 @@ impl Index {
         self.table.insert(key, segment);
     }
     pub fn get(&self, key: &str) -> Option<DocumentSegment> {
-        self.table.get(key).cloned()
+        let found = self.table.get(key).cloned();
+        found
     }
 }
 impl Iterator for Index {
@@ -58,7 +59,7 @@ impl Iterator for Index {
         self.table.pop_first()
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SSTable {
     pub index: Index,
     pub base_dir: PathBuf,
@@ -90,22 +91,26 @@ impl SSTable {
                 if next_key == key {
                     match value.timestamp.cmp(&next_val.timestamp) {
                         std::cmp::Ordering::Less => {
-                            current_offset = Self::write_and_index(
-                                &mut w,
-                                next_key,
-                                &next_val,
-                                &mut index,
-                                current_offset,
-                            )?;
+                            if next_val.value != Value::Invalid {
+                                current_offset = Self::write_and_index(
+                                    &mut w,
+                                    next_key,
+                                    &next_val,
+                                    &mut index,
+                                    current_offset,
+                                )?;
+                            }
                         }
                         std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
-                            current_offset = Self::write_and_index(
-                                &mut w,
-                                key,
-                                &value,
-                                &mut index,
-                                current_offset,
-                            )?;
+                            if value.value != Value::Invalid {
+                                current_offset = Self::write_and_index(
+                                    &mut w,
+                                    key,
+                                    &value,
+                                    &mut index,
+                                    current_offset,
+                                )?;
+                            }
                         }
                     };
                 } else {
@@ -180,12 +185,15 @@ impl SSTable {
         Ok(value)
     }
     pub fn get(&self, key: &str) -> Result<Option<TimeStampedValue>> {
-        let value = self
-            .index
-            .get(key)
-            .map(|segment| self.read_segment(segment))
-            .ok_or(Error::new("Could not read segment"))?;
-        Ok(value.ok())
+        if let Some(segment) = self.index.get(key) {
+            if let Ok(val) = self.read_segment(segment) {
+                Ok(Some(val))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn get_data_file_path(&self) -> PathBuf {

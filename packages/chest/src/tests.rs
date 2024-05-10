@@ -348,3 +348,26 @@ fn keys_are_sorted() {
     assert_eq!(table.index.next().unwrap().0, "orange".to_owned());
     assert_eq!(table.index.next().unwrap().0, "peach".to_owned());
 }
+
+#[test]
+fn dead_value_cancel() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1,
+        64,
+        Box::new(BloomFilter::default()),
+    )
+    .unwrap();
+    chest
+        .set("foo", TimeStampedValue::new(Value::Integer(0)))
+        .unwrap();
+    chest.delete("foo").unwrap();
+    assert_eq!(chest.sstables.len(), 2);
+    let mut first = chest.sstables.pop_first().unwrap().0;
+    let mut second = chest.sstables.pop_first().unwrap().0;
+    assert_eq!(first.index.table.len(), 1);
+    assert_eq!(second.index.table.len(), 1);
+    let merged = first.merge(&mut second, "merged".to_owned()).unwrap();
+    assert_eq!(merged.index.table.len(), 0);
+}
