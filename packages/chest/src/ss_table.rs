@@ -186,14 +186,9 @@ impl SSTable {
     }
     pub fn get(&self, key: &str) -> Result<Option<TimeStampedValue>> {
         if let Some(segment) = self.index.get(key) {
-            if let Ok(val) = self.read_segment(segment) {
-                Ok(Some(val))
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
+            return Ok(self.read_segment(segment).map(Some).unwrap_or(None));
         }
+        Ok(None)
     }
 
     pub fn get_data_file_path(&self) -> PathBuf {
