@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 
 [workspace]
-members = ["packages/chest", "packages/errors"]
+members = ["packages/chest", "packages/errors", "packages/query"]
 
 [workspace.dependencies]
 errors = {path = "packages/errors"}
