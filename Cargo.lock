@@ -95,6 +95,7 @@ dependencies = [
  "errors",
  "fasthash",
  "itertools",
+ "query",
  "rmp-serde",
  "serde",
 ]
@@ -525,6 +526,16 @@ dependencies = [
  "byteorder",
  "rmp",
  "serde",
+]
+
+[[package]]
+name = "runner"
+version = "0.1.0"
+dependencies = [
+ "chest",
+ "cuid",
+ "errors",
+ "query",
 ]
 
 [[package]]

@@ -1,8 +1,10 @@
+#[derive(Debug, PartialEq)]
 pub enum Literal {
     String(String),
     Integer(i64),
     Float(f64),
     Boolean(bool),
+    Null,
 }
 pub struct GetExpr {
     pub key: String,

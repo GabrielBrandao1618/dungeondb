@@ -1,5 +1,6 @@
 use std::time::UNIX_EPOCH;
 
+use query::ast::Literal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -24,6 +25,15 @@ impl TimeStampedValue {
         Self {
             timestamp: ellapsed.as_nanos(),
             value,
+        }
+    }
+    pub fn to_query(self) -> Literal {
+        match self.value {
+            Value::Integer(v) => Literal::Integer(v),
+            Value::Float(v) => Literal::Float(v),
+            Value::String(v) => Literal::String(v),
+            Value::Boolean(v) => Literal::Boolean(v),
+            Value::Invalid => unreachable!(),
         }
     }
 }
