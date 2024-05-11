@@ -27,6 +27,9 @@ pub fn run_query(chest: &mut Chest, query: Statement) -> DungeonResult<Literal> 
             )?;
             Ok(Literal::Null)
         }
-        Statement::Delete(_) => todo!(),
+        Statement::Delete(stmt) => {
+            chest.delete(&stmt.key)?;
+            Ok(Literal::Null)
+        }
     }
 }

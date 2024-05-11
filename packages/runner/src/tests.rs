@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use cuid::cuid2;
 
 use chest::filter::bloom::BloomFilter;
-use query::ast::{Expression, GetExpr, SetStmt};
+use query::ast::{DeleteStmt, Expression, GetExpr, SetStmt};
 
 use super::*;
 
@@ -66,4 +66,48 @@ fn test_insert_value() {
     )
     .unwrap();
     assert_eq!(found, Literal::Integer(1));
+}
+
+#[test]
+fn test_delete_value() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1024,
+        8,
+        Box::new(BloomFilter::default()),
+    )
+    .unwrap();
+    run_query(
+        &mut chest,
+        Statement::Set(SetStmt {
+            key: "count".to_owned(),
+            value: Expression::Literal(Literal::Integer(0)),
+        }),
+    )
+    .unwrap();
+    let found = run_query(
+        &mut chest,
+        Statement::Expr(Expression::Get(GetExpr {
+            key: "count".to_owned(),
+        })),
+    )
+    .unwrap();
+    assert_eq!(found, Literal::Integer(0));
+    run_query(
+        &mut chest,
+        Statement::Delete(DeleteStmt {
+            key: "count".to_owned(),
+        }),
+    )
+    .unwrap();
+
+    let found = run_query(
+        &mut chest,
+        Statement::Expr(Expression::Get(GetExpr {
+            key: "count".to_owned(),
+        })),
+    )
+    .unwrap();
+    assert_eq!(found, Literal::Null);
 }
