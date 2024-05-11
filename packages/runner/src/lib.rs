@@ -1,4 +1,7 @@
-use chest::Chest;
+use chest::{
+    value::{TimeStampedValue, Value},
+    Chest,
+};
 use errors::DungeonResult;
 use query::ast::{Literal, Statement};
 
@@ -16,7 +19,14 @@ pub fn run_query(chest: &mut Chest, query: Statement) -> DungeonResult<Literal> 
                 Ok(found)
             }
         },
-        Statement::Set(_) => todo!(),
+        Statement::Set(stmt) => {
+            let value = run_query(chest, Statement::Expr(stmt.value))?;
+            chest.set(
+                &stmt.key,
+                TimeStampedValue::new(Value::from_query_literal(value)),
+            )?;
+            Ok(Literal::Null)
+        }
         Statement::Delete(_) => todo!(),
     }
 }

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use cuid::cuid2;
 
 use chest::filter::bloom::BloomFilter;
-use query::ast::Expression;
+use query::ast::{Expression, GetExpr, SetStmt};
 
 use super::*;
 
@@ -38,4 +38,32 @@ fn test_eval_literal() {
     )
     .unwrap();
     assert_eq!(result, Literal::Integer(1));
+}
+
+#[test]
+fn test_insert_value() {
+    let chest_dir = get_test_tempdir();
+    let mut chest = Chest::new(
+        chest_dir.to_str().unwrap(),
+        1024,
+        8,
+        Box::new(BloomFilter::default()),
+    )
+    .unwrap();
+    run_query(
+        &mut chest,
+        Statement::Set(SetStmt {
+            key: "count".to_owned(),
+            value: Expression::Literal(Literal::Integer(1)),
+        }),
+    )
+    .unwrap();
+    let found = run_query(
+        &mut chest,
+        Statement::Expr(Expression::Get(GetExpr {
+            key: "count".to_owned(),
+        })),
+    )
+    .unwrap();
+    assert_eq!(found, Literal::Integer(1));
 }

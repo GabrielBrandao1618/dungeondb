@@ -12,6 +12,27 @@ pub enum Value {
     Invalid,
 }
 
+impl Value {
+    pub fn to_query(self) -> Literal {
+        match self {
+            Value::Integer(v) => Literal::Integer(v),
+            Value::Float(v) => Literal::Float(v),
+            Value::String(v) => Literal::String(v),
+            Value::Boolean(v) => Literal::Boolean(v),
+            Value::Invalid => unreachable!(),
+        }
+    }
+    pub fn from_query_literal(lit: Literal) -> Self {
+        match lit {
+            Literal::String(v) => Self::String(v),
+            Literal::Integer(v) => Self::Integer(v),
+            Literal::Float(v) => Self::Float(v),
+            Literal::Boolean(v) => Self::Boolean(v),
+            Literal::Null => Self::Invalid,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TimeStampedValue {
     pub timestamp: u128,
@@ -28,13 +49,7 @@ impl TimeStampedValue {
         }
     }
     pub fn to_query(self) -> Literal {
-        match self.value {
-            Value::Integer(v) => Literal::Integer(v),
-            Value::Float(v) => Literal::Float(v),
-            Value::String(v) => Literal::String(v),
-            Value::Boolean(v) => Literal::Boolean(v),
-            Value::Invalid => unreachable!(),
-        }
+        self.value.to_query()
     }
 }
 
