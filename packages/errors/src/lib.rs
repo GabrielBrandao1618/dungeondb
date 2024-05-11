@@ -1,21 +1,21 @@
 use std::{error, fmt::Display};
 
 #[derive(Debug)]
-pub struct Error {
+pub struct DungeonError {
     pub message: String,
 }
-impl Error {
+impl DungeonError {
     pub fn new(msg: &str) -> Self {
         Self {
             message: msg.to_owned(),
         }
     }
 }
-impl Display for Error {
+impl Display for DungeonError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.message)
     }
 }
 
-impl error::Error for Error {}
-pub type Result<T> = std::result::Result<T, Error>;
+impl error::Error for DungeonError {}
+pub type DungeonResult<T> = std::result::Result<T, DungeonError>;

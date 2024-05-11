@@ -13,7 +13,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use errors::{Error, Result};
+use errors::{DungeonError, DungeonResult};
 use filter::Filter;
 use mem_table::MemTable;
 use ss_table::SSTable;
@@ -42,18 +42,18 @@ impl Chest {
         flush_size: usize,
         max_sstable_count: usize,
         mut filter: Box<dyn Filter>,
-    ) -> Result<Self> {
+    ) -> DungeonResult<Self> {
         let mut sstables = BTreeSet::new();
         let dir_path = PathBuf::from(dir_path);
         if !dir_path.is_dir() {
             std::fs::create_dir_all(&dir_path)
-                .map_err(|_| Error::new("Could not create chest dir"))?;
+                .map_err(|_| DungeonError::new("Could not create chest dir"))?;
         }
         for file in dir_path
             .read_dir()
-            .map_err(|_| Error::new("Could not read directory"))?
+            .map_err(|_| DungeonError::new("Could not read directory"))?
         {
-            let ok_file = file.map_err(|_| Error::new("Could not handle file"))?;
+            let ok_file = file.map_err(|_| DungeonError::new("Could not handle file"))?;
             let file_path = ok_file.path();
             match file_path.extension() {
                 Some(ok_path) => {
@@ -62,9 +62,9 @@ impl Chest {
                             dir_path.clone(),
                             file_path
                                 .file_stem()
-                                .ok_or(Error::new("Could not get file stem"))?
+                                .ok_or(DungeonError::new("Could not get file stem"))?
                                 .to_str()
-                                .ok_or(Error::new("Could not convert file path to string"))?
+                                .ok_or(DungeonError::new("Could not convert file path to string"))?
                                 .to_owned(),
                         )?;
                         for (key, _) in sstable.index.table.iter() {
@@ -85,7 +85,7 @@ impl Chest {
             filter,
         })
     }
-    pub fn set(&mut self, key: &str, value: TimeStampedValue) -> Result<()> {
+    pub fn set(&mut self, key: &str, value: TimeStampedValue) -> DungeonResult<()> {
         self.mem_table.set(key, value);
         self.filter.insert(key);
         if self.mem_table.size() >= self.flush_size {
@@ -93,7 +93,7 @@ impl Chest {
         }
         Ok(())
     }
-    pub fn get(&self, key: &str) -> Result<Option<TimeStampedValue>> {
+    pub fn get(&self, key: &str) -> DungeonResult<Option<TimeStampedValue>> {
         if !self.filter.contains(key) {
             return Ok(None);
         }
@@ -117,11 +117,11 @@ impl Chest {
             }
         }
     }
-    pub fn delete(&mut self, key: &str) -> Result<()> {
+    pub fn delete(&mut self, key: &str) -> DungeonResult<()> {
         self.set(key, TimeStampedValue::new(Value::Invalid))?;
         Ok(())
     }
-    fn flush(&mut self) -> Result<()> {
+    fn flush(&mut self) -> DungeonResult<()> {
         // Maps (String, Value) into a DungeonResult<(String, Value)> so it is complatible with the
         // `new` sstable method
         let flushed = self.mem_table.flush().into_iter();
@@ -134,7 +134,7 @@ impl Chest {
             let mut smaller = self
                 .sstables
                 .pop_first()
-                .ok_or(Error::new("Could not get smaller sstable"))?;
+                .ok_or(DungeonError::new("Could not get smaller sstable"))?;
             let merged = smaller.0.merge(&mut ss_table, generate_sstable_name())?;
             self.sstables.insert(OrderedByDateSSTable(merged));
             smaller.0.delete_self()?;
