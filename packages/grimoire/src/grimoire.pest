@@ -1,0 +1,21 @@
+quote      = _{ "\"" }
+text       = @{ (!("\"") ~ ANY)* }
+string     = ${ quote ~ text ~ quote }
+bool_true  =  { "true" }
+bool_false =  { "false" }
+boolean    =  { bool_true | bool_false }
+integer    = @{ ASCII_DIGIT+ }
+float      = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+
+literal = { string | float | integer | boolean }
+
+key      = _{ ASCII_ALPHANUMERIC+ }
+get_expr =  { "get" ~ key }
+
+expression = { get_expr | literal }
+
+set_stmt    = { "set" ~ key ~ expression }
+delete_stmt = { "delete" ~ key }
+statement   = { (set_stmt | delete_stmt | expression) ~ ";" }
+
+WHITESPACE = { " " | "\n" }
