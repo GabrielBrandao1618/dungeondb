@@ -6,9 +6,11 @@ pub enum Literal {
     Boolean(bool),
     Null,
 }
+#[derive(Debug, PartialEq)]
 pub struct GetExpr {
     pub key: String,
 }
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Literal(Literal),
     Get(GetExpr),
