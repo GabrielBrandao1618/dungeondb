@@ -9,8 +9,8 @@ float      = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 
 literal = { string | float | integer | boolean }
 
-key      = { ASCII_ALPHANUMERIC+ }
-get_expr = { "get" ~ key }
+key      = @{ ASCII_ALPHANUMERIC+ }
+get_expr =  { "get" ~ key }
 
 expression = { get_expr | literal }
 

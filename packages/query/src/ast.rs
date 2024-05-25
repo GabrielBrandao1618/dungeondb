@@ -16,14 +16,17 @@ pub enum Expression {
     Get(GetExpr),
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SetStmt {
     pub key: String,
     pub value: Expression,
 }
+#[derive(Debug, PartialEq)]
 pub struct DeleteStmt {
     pub key: String,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     Expr(Expression),
     Set(SetStmt),
