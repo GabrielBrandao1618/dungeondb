@@ -9,8 +9,8 @@ float      = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 
 literal = { string | float | integer | boolean }
 
-key      = _{ ASCII_ALPHANUMERIC+ }
-get_expr =  { "get" ~ key }
+key      = { ASCII_ALPHANUMERIC+ }
+get_expr = { "get" ~ key }
 
 expression = { get_expr | literal }
 
@@ -18,4 +18,4 @@ set_stmt    = { "set" ~ key ~ expression }
 delete_stmt = { "delete" ~ key }
 statement   = { (set_stmt | delete_stmt | expression) ~ ";" }
 
-WHITESPACE = { " " | "\n" }
+WHITESPACE = _{ " " | "\n" }
