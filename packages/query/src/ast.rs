@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, PartialEq)]
 pub enum Literal {
     String(String),
@@ -5,6 +7,17 @@ pub enum Literal {
     Float(f64),
     Boolean(bool),
     Null,
+}
+impl Display for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Literal::String(val) => write!(f, "{val}"),
+            Literal::Integer(val) => write!(f, "{val}"),
+            Literal::Float(val) => write!(f, "{val}"),
+            Literal::Boolean(val) => write!(f, "{val}"),
+            Literal::Null => write!(f, "null"),
+        }
+    }
 }
 #[derive(Debug, PartialEq)]
 pub struct GetExpr {
