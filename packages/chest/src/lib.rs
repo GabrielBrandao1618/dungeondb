@@ -1,7 +1,7 @@
-mod filter;
+pub mod filter;
 mod mem_table;
 mod ss_table;
-mod value;
+pub mod value;
 
 #[cfg(test)]
 mod tests;
