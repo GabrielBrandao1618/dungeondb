@@ -43,6 +43,10 @@ pub fn parse_statement(input: &str) -> DungeonResult<Statement> {
                 value: parsed_value,
             }))
         }
+        Rule::expression => {
+            let parsed = parse_expression(inner_ast.as_str())?;
+            Ok(Statement::Expr(parsed))
+        }
         _ => unreachable!(),
     }
 }
@@ -55,7 +59,7 @@ mod tests {
 
     #[test]
     fn test_parse_set_statement() {
-        let parsed = parse_statement("set count 1;").unwrap();
+        let parsed = parse_statement("set count 1").unwrap();
         assert_eq!(
             parsed,
             Statement::Set(SetStmt {
@@ -66,7 +70,7 @@ mod tests {
     }
     #[test]
     fn test_parse_delete_statement() {
-        let parsed = parse_statement("delete count;").unwrap();
+        let parsed = parse_statement("delete count").unwrap();
         assert_eq!(
             parsed,
             Statement::Delete(DeleteStmt {

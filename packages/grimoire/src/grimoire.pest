@@ -16,6 +16,6 @@ expression = { get_expr | literal }
 
 set_stmt    = { "set" ~ key ~ expression }
 delete_stmt = { "delete" ~ key }
-statement   = { (set_stmt | delete_stmt | expression) ~ ";" }
+statement   = { (set_stmt | delete_stmt | expression) }
 
 WHITESPACE = _{ " " | "\n" }
