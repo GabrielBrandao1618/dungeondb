@@ -10,6 +10,7 @@ edition = "2021"
 [workspace]
 members = [
   "packages/chest",
+  "packages/client",
   "packages/errors",
   "packages/grimoire",
   "packages/query",
@@ -24,3 +25,5 @@ chest = {path = "packages/chest"}
 grimoire = {path = "packages/grimoire"}
 runner = {path = "packages/runner"}
 server = {path = "packages/server"}
+client = {path = "packages/client"}
+tokio = { version = "1.37.0", features = ["full"] }
