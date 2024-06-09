@@ -24,8 +24,6 @@ impl Server {
         }
     }
     pub async fn start<A: ToSocketAddrs>(&mut self, addr: A) -> io::Result<()> {
-        println!("Started");
-
         let socket = TcpListener::bind(addr).await?;
         let _ = self.listen(socket).await;
         Ok(())
@@ -71,7 +69,6 @@ impl Default for Server {
 
 impl Drop for Server {
     fn drop(&mut self) {
-        println!("Dropping");
         let _ = self.shutdown();
     }
 }
