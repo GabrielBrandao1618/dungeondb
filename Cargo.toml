@@ -9,7 +9,7 @@ edition = "2021"
 
 [workspace]
 members = [
-  "packages/chest",
+  "packages/chest", "packages/cli",
   "packages/client",
   "packages/errors",
   "packages/grimoire",
