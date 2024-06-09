@@ -27,7 +27,7 @@ pub struct Chest {
     flush_size: usize,
     sstables: BTreeSet<OrderedByDateSSTable>,
     max_sstable_count: usize,
-    filter: Box<dyn Filter>,
+    filter: Box<dyn Filter + Send>,
 }
 
 fn generate_sstable_name() -> String {
@@ -41,7 +41,7 @@ impl Chest {
         dir_path: &str,
         flush_size: usize,
         max_sstable_count: usize,
-        mut filter: Box<dyn Filter>,
+        mut filter: Box<dyn Filter + Send>,
     ) -> DungeonResult<Self> {
         let mut sstables = BTreeSet::new();
         let dir_path = PathBuf::from(dir_path);

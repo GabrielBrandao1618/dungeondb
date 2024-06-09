@@ -8,7 +8,15 @@ edition = "2021"
 [dependencies]
 
 [workspace]
-members = ["packages/chest", "packages/errors", "packages/grimoire", "packages/query", "packages/runner", "packages/server"]
+members = [
+  "packages/chest", "packages/cli",
+  "packages/client",
+  "packages/errors",
+  "packages/grimoire",
+  "packages/query",
+  "packages/runner",
+  "packages/server"
+]
 
 [workspace.dependencies]
 errors = {path = "packages/errors"}
@@ -16,3 +24,6 @@ query = {path = "packages/query"}
 chest = {path = "packages/chest"}
 grimoire = {path = "packages/grimoire"}
 runner = {path = "packages/runner"}
+server = {path = "packages/server"}
+client = {path = "packages/client"}
+tokio = { version = "1.37.0", features = ["full"] }
