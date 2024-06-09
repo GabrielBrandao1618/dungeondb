@@ -1,30 +1,37 @@
 use std::{
     io::{self, ErrorKind},
-    net::SocketAddr,
     sync::Arc,
 };
 
-use chest::Chest;
+use chest::{filter::bloom::BloomFilter, Chest};
 use grimoire::parse;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpListener,
+    net::{TcpListener, ToSocketAddrs},
     sync::Mutex,
 };
 
 pub struct Server {
     chest: Arc<Mutex<Chest>>,
+    shutdown: bool,
 }
 
 impl Server {
     pub fn new(chest: Chest) -> Self {
         Self {
             chest: Arc::new(Mutex::new(chest)),
+            shutdown: false,
         }
     }
-    pub async fn listen<A: Into<SocketAddr>>(&mut self, addr: A) -> io::Result<()> {
-        let socket = TcpListener::bind(addr.into()).await?;
-        loop {
+    pub async fn start<A: ToSocketAddrs>(&mut self, addr: A) -> io::Result<()> {
+        println!("Started");
+
+        let socket = TcpListener::bind(addr).await?;
+        let _ = self.listen(socket).await;
+        Ok(())
+    }
+    async fn listen(&mut self, socket: TcpListener) -> io::Result<()> {
+        while !self.shutdown {
             let (mut stream, _) = socket.accept().await?;
             let chest = self.chest.clone();
             let handle: io::Result<()> = tokio::spawn(async move {
@@ -46,5 +53,25 @@ impl Server {
                 eprintln!("{}", err.to_string());
             }
         }
+        Ok(())
+    }
+    pub async fn shutdown(&mut self) {
+        self.shutdown = true;
+    }
+}
+
+impl Default for Server {
+    fn default() -> Self {
+        Self::new(
+            Chest::new(".chest", 512, 24, Box::new(BloomFilter::new(1024, 1.0)))
+                .expect("Could not create chest"),
+        )
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        println!("Dropping");
+        let _ = self.shutdown();
     }
 }
