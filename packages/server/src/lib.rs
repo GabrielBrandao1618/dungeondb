@@ -36,14 +36,17 @@ impl Server {
                 let (mut r, mut w) = stream.split();
                 loop {
                     let mut input: Vec<u8> = Vec::new();
-                    let _ = r.read_buf(&mut input).await?;
-                    let parsed = parse(&String::from_utf8_lossy(&input))
-                        .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
-                    let mut chest_lock = chest.lock().await;
-                    let result = runner::run_query(&mut *chest_lock, parsed)
-                        .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
-                    w.write(format!("{}\n", result.to_string()).as_bytes())
-                        .await?;
+                    let chars_read = r.read_buf(&mut input).await?;
+                    if chars_read > 0 {
+                        let parsed_input = String::from_utf8_lossy(&input);
+                        let parsed = parse(parsed_input.trim())
+                            .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
+                        let mut chest_lock = chest.lock().await;
+                        let result = runner::run_query(&mut *chest_lock, parsed)
+                            .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
+                        w.write(format!("{}\n", result.to_string()).as_bytes())
+                            .await?;
+                    }
                 }
             })
             .await?;
