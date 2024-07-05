@@ -1,8 +1,12 @@
-use std::io;
+use std::{
+    io::{self, BufWriter},
+    time::Duration,
+};
 
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpStream, ToSocketAddrs},
+    time,
 };
 
 pub struct Client<A: ToSocketAddrs> {
@@ -28,12 +32,11 @@ impl<A: ToSocketAddrs> Client<A> {
     }
     pub async fn query(&mut self, query: &str) -> io::Result<String> {
         if let Some(conn) = &mut self.conn {
-            let (mut r, mut w) = conn.split();
-            w.write_all(format!("{}\n", query).as_bytes()).await?;
+            conn.write_all(format!("{}\n", query).as_bytes()).await?;
             let mut input = Vec::new();
-            let _ = r.read(&mut input).await?;
-            let parsed_input = String::from_utf8(input)
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "Could not parse response"))?;
+            conn.read(&mut input).await?;
+
+            let parsed_input = String::from_utf8_lossy(&input).to_string();
             Ok(parsed_input)
         } else {
             Err(io::Error::new(
