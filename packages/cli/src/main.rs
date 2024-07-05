@@ -1,6 +1,6 @@
 use std::io;
 
-use action::query;
+use action::{connect::connect, query};
 use clap::{command, Parser, Subcommand};
 
 mod action;
@@ -29,7 +29,7 @@ async fn main() -> io::Result<()> {
         } => {
             query::query(url, query_arg).await?;
         }
-        Action::Connect { url } => println!("Connecting to server at {url}"),
+        Action::Connect { url } => connect(url).await?,
     }
     Ok(())
 }
