@@ -9,6 +9,6 @@ pub async fn query(url: String, query: String) -> io::Result<()> {
     client.query("exit").await?;
 
     client.disconnect().await?;
-    println!("Result: {result}");
+    print!("{result}");
     Ok(())
 }
