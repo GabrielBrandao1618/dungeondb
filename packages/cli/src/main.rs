@@ -1,4 +1,9 @@
+use std::io;
+
+use action::{connect::connect, query};
 use clap::{command, Parser, Subcommand};
+
+mod action;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -14,12 +19,17 @@ enum Action {
     Connect { url: String },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> io::Result<()> {
     let args = Args::parse();
     match args.cmd {
-        Action::Query { url, query } => {
-            println!("Running query: `{query}` on server {url}");
+        Action::Query {
+            url,
+            query: query_arg,
+        } => {
+            query::query(url, query_arg).await?;
         }
-        Action::Connect { url } => println!("Connecting to server at {url}"),
+        Action::Connect { url } => connect(url).await?,
     }
+    Ok(())
 }

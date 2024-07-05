@@ -1,7 +1,7 @@
 use std::io;
 
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{TcpStream, ToSocketAddrs},
 };
 
@@ -19,16 +19,32 @@ impl<A: ToSocketAddrs> Client<A> {
         self.conn = Some(connection);
         Ok(())
     }
-    pub fn disconnect(&mut self) {
-        self.conn = None;
-    }
-    pub async fn query(&mut self, query: &str) -> io::Result<()> {
+    pub async fn disconnect(&mut self) -> io::Result<()> {
         if let Some(conn) = &mut self.conn {
-            let (mut r, mut w) = conn.split();
-            w.write_all(format!("{}\n", query).as_bytes()).await?;
-            let mut input = String::new();
-            let _ = r.read_to_string(&mut input).await?;
+            conn.shutdown().await?;
         }
+        self.conn = None;
         Ok(())
+    }
+    pub async fn query(&mut self, query: &str) -> io::Result<String> {
+        if let Some(conn) = &mut self.conn {
+            conn.write_all(format!("{}\n", query).as_bytes()).await?;
+            let mut r = BufReader::new(conn);
+            let mut input = String::new();
+            r.read_line(&mut input).await?;
+
+            Ok(input)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "Not connected to the server",
+            ))
+        }
+    }
+}
+
+impl<A: ToSocketAddrs> Drop for Client<A> {
+    fn drop(&mut self) {
+        let _ = self.disconnect();
     }
 }

@@ -7,7 +7,7 @@ use chest::{filter::bloom::BloomFilter, Chest};
 use grimoire::parse;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, ToSocketAddrs},
+    net::{TcpListener, TcpStream, ToSocketAddrs},
     sync::Mutex,
 };
 
@@ -30,32 +30,43 @@ impl Server {
     }
     async fn listen(&mut self, socket: TcpListener) -> io::Result<()> {
         while !self.shutdown {
-            let (mut stream, _) = socket.accept().await?;
+            let (stream, _) = socket.accept().await?;
             let chest = self.chest.clone();
-            let handle: io::Result<()> = tokio::spawn(async move {
-                let (mut r, mut w) = stream.split();
-                loop {
-                    let mut input: Vec<u8> = Vec::new();
-                    let _ = r.read_buf(&mut input).await?;
-                    let parsed = parse(&String::from_utf8_lossy(&input))
-                        .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
-                    let mut chest_lock = chest.lock().await;
-                    let result = runner::run_query(&mut *chest_lock, parsed)
-                        .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
-                    w.write(format!("{}\n", result.to_string()).as_bytes())
-                        .await?;
-                }
-            })
-            .await?;
-            if let Err(err) = handle {
-                eprintln!("{}", err.to_string());
-            }
+            tokio::spawn(async move {
+                handle_connection(stream, chest).await.unwrap();
+            });
         }
         Ok(())
     }
     pub async fn shutdown(&mut self) {
         self.shutdown = true;
     }
+}
+
+async fn handle_connection(mut stream: TcpStream, chest: Arc<Mutex<Chest>>) -> io::Result<()> {
+    let (mut r, mut w) = stream.split();
+    loop {
+        let mut input: Vec<u8> = Vec::new();
+        let chars_read = r.read_buf(&mut input).await?;
+        if chars_read > 0 {
+            let parsed_input = String::from_utf8_lossy(&input);
+            if parsed_input.trim() == "exit" {
+                let _ = drop(stream);
+                break;
+            }
+
+            let parsed = parse(parsed_input.trim())
+                .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
+            let mut chest_lock = chest.lock().await;
+            let result = runner::run_query(&mut *chest_lock, parsed)
+                .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
+            w.write_all(format!("{}\n", result.to_string()).as_bytes())
+                .await?;
+            w.flush().await?;
+            input.clear();
+        }
+    }
+    Ok(())
 }
 
 impl Default for Server {
