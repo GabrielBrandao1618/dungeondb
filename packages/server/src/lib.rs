@@ -1,14 +1,12 @@
-use std::{
-    io::{self, ErrorKind},
-    sync::Arc,
-};
+use std::{io, sync::Arc};
 
 use chest::{filter::bloom::BloomFilter, Chest};
 use grimoire::parse;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream, ToSocketAddrs},
     sync::Mutex,
+    task::JoinHandle,
 };
 
 pub struct Server {
@@ -32,8 +30,9 @@ impl Server {
         while !self.shutdown {
             let (stream, _) = socket.accept().await?;
             let chest = self.chest.clone();
-            tokio::spawn(async move {
-                handle_connection(stream, chest).await.unwrap();
+            let _: JoinHandle<io::Result<()>> = tokio::spawn(async move {
+                handle_connection(stream, chest).await?;
+                Ok(())
             });
         }
         Ok(())
@@ -44,26 +43,32 @@ impl Server {
 }
 
 async fn handle_connection(mut stream: TcpStream, chest: Arc<Mutex<Chest>>) -> io::Result<()> {
-    let (mut r, mut w) = stream.split();
+    let (r, mut w) = stream.split();
+    let mut r = BufReader::new(r);
     loop {
-        let mut input: Vec<u8> = Vec::new();
-        let chars_read = r.read_buf(&mut input).await?;
-        if chars_read > 0 {
-            let parsed_input = String::from_utf8_lossy(&input);
-            if parsed_input.trim() == "exit" {
-                let _ = drop(stream);
-                break;
-            }
+        let mut input = String::new();
+        let _ = r.read_line(&mut input).await?;
+        if input.trim() == "exit" {
+            let _ = drop(stream);
+            break;
+        }
 
-            let parsed = parse(parsed_input.trim())
-                .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
-            let mut chest_lock = chest.lock().await;
-            let result = runner::run_query(&mut *chest_lock, parsed)
-                .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
-            w.write_all(format!("{}\n", result.to_string()).as_bytes())
-                .await?;
-            w.flush().await?;
-            input.clear();
+        if !input.trim().is_empty() {
+            let parse_result = parse(input.trim());
+            if let Ok(parsed) = parse_result {
+                let mut chest_lock = chest.lock().await;
+                let result = runner::run_query(&mut *chest_lock, parsed);
+                if let Ok(result) = result {
+                    w.write_all(format!("{}\n", result.to_string()).as_bytes())
+                        .await?;
+                    w.flush().await?;
+                } else {
+                    w.write_all(b"Error: Failed to run query").await?;
+                }
+            } else {
+                w.write_all(b"Error: invalid statement\n").await?;
+                w.flush().await?;
+            }
         }
     }
     Ok(())
