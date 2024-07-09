@@ -9,6 +9,7 @@ edition = "2021"
 errors = {workspace = true}
 chest = {workspace = true}
 query = {workspace = true}
+grimoire = {workspace = true}
 
 [dev-dependencies]
 cuid = "1.3.2"

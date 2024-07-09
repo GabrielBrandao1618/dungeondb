@@ -1,13 +1,14 @@
 use std::{io, sync::Arc};
 
 use chest::{filter::bloom::BloomFilter, Chest};
-use grimoire::parse;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream, ToSocketAddrs},
     sync::Mutex,
     task::JoinHandle,
 };
+
+use runner::run_statement;
 
 pub struct Server {
     chest: Arc<Mutex<Chest>>,
@@ -54,20 +55,14 @@ async fn handle_connection(mut stream: TcpStream, chest: Arc<Mutex<Chest>>) -> i
         }
 
         if !input.trim().is_empty() {
-            let parse_result = parse(input.trim());
-            if let Ok(parsed) = parse_result {
-                let mut chest_lock = chest.lock().await;
-                let result = runner::run_query(&mut *chest_lock, parsed);
-                if let Ok(result) = result {
-                    w.write_all(format!("{}\n", result.to_string()).as_bytes())
-                        .await?;
-                    w.flush().await?;
-                } else {
-                    w.write_all(b"Error: Failed to run query").await?;
-                }
-            } else {
-                w.write_all(b"Error: invalid statement\n").await?;
+            let mut chest_lock = chest.lock().await;
+            let result = run_statement(&mut *chest_lock, input.trim());
+            if let Ok(result) = result {
+                w.write_all(format!("{}\n", result.to_string()).as_bytes())
+                    .await?;
                 w.flush().await?;
+            } else {
+                w.write_all(b"Error: Failed to run query").await?;
             }
         }
     }

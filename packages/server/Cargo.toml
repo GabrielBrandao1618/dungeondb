@@ -8,6 +8,5 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.37.0", features = ["full"] }
 errors = {workspace = true}
-grimoire = {workspace = true}
 chest = {workspace = true}
 runner = {workspace = true}

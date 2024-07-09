@@ -8,7 +8,6 @@ fasthash = "0.4.0"
 rmp-serde = "1.2.0"
 serde = { version = "1.0.198", features = ["derive"] }
 errors = {workspace = true}
-query = {workspace = true}
 itertools = "0.12.1"
 
 [dev-dependencies]
