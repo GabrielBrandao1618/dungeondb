@@ -156,7 +156,6 @@ dependencies = [
  "errors",
  "fasthash",
  "itertools",
- "query",
  "rmp-serde",
  "serde",
 ]
@@ -819,6 +818,7 @@ dependencies = [
  "chest",
  "cuid",
  "errors",
+ "grimoire",
  "query",
 ]
 
@@ -866,7 +866,6 @@ version = "0.1.0"
 dependencies = [
  "chest",
  "errors",
- "grimoire",
  "runner",
  "tokio",
 ]
