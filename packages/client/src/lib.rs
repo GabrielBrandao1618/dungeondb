@@ -1,9 +1,11 @@
-use std::io;
+use std::io::{self, ErrorKind};
 
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{TcpStream, ToSocketAddrs},
 };
+
+use server_value::ServerResponse;
 
 pub struct Client<A: ToSocketAddrs> {
     addrs: A,
@@ -26,14 +28,16 @@ impl<A: ToSocketAddrs> Client<A> {
         self.conn = None;
         Ok(())
     }
-    pub async fn query(&mut self, query: &str) -> io::Result<String> {
+    pub async fn query(&mut self, query: &str) -> io::Result<ServerResponse> {
         if let Some(conn) = &mut self.conn {
             conn.write_all(format!("{}\n", query).as_bytes()).await?;
             let mut r = BufReader::new(conn);
-            let mut input = String::new();
-            r.read_line(&mut input).await?;
+            let mut input = Vec::new();
+            r.read_until(b'\n', &mut input).await?;
+            let parsed = ServerResponse::from_vec(&input)
+                .map_err(|err| io::Error::new(ErrorKind::Other, err))?;
 
-            Ok(input)
+            Ok(parsed)
         } else {
             Err(io::Error::new(
                 io::ErrorKind::NotConnected,

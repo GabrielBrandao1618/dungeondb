@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use cuid::cuid2;
 
 use chest::filter::bloom::BloomFilter;
-use query::ast::{DeleteStmt, Expression, GetExpr, SetStmt};
+use query::ast::{DeleteStmt, Expression, GetExpr, Literal, SetStmt};
 
 use super::*;
 
@@ -37,7 +37,7 @@ fn test_eval_literal() {
         Statement::Expr(Expression::Literal(Literal::Integer(1))),
     )
     .unwrap();
-    assert_eq!(result, Literal::Integer(1));
+    assert_eq!(result, Value::Integer(1));
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn test_insert_value() {
         })),
     )
     .unwrap();
-    assert_eq!(found, Literal::Integer(1));
+    assert_eq!(found, Value::Integer(1));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn test_delete_value() {
         })),
     )
     .unwrap();
-    assert_eq!(found, Literal::Integer(0));
+    assert_eq!(found, Value::Integer(0));
     run_query(
         &mut chest,
         Statement::Delete(DeleteStmt {
@@ -109,5 +109,5 @@ fn test_delete_value() {
         })),
     )
     .unwrap();
-    assert_eq!(found, Literal::Null);
+    assert_eq!(found, Value::Invalid);
 }

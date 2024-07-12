@@ -216,6 +216,7 @@ dependencies = [
  "ctor",
  "lazy_static",
  "server",
+ "server-value",
  "tokio",
 ]
 
@@ -867,7 +868,18 @@ dependencies = [
  "chest",
  "errors",
  "runner",
+ "serde",
+ "server-value",
  "tokio",
+]
+
+[[package]]
+name = "server-value"
+version = "0.1.0"
+dependencies = [
+ "chest",
+ "rmp-serde",
+ "serde",
 ]
 
 [[package]]

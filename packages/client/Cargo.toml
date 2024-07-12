@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 tokio = {workspace = true}
+server-value = {workspace = true}
 
 [dev-dependencies]
 server = {workspace = true}
