@@ -10,5 +10,4 @@ tokio = { version = "1.37.0", features = ["full"] }
 errors = {workspace = true}
 chest = {workspace = true}
 runner = {workspace = true}
-serde = { version = "1.0.198", features = ["derive"] }
 server-value = {workspace = true}

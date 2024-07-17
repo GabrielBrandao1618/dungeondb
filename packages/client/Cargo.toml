@@ -8,8 +8,3 @@ edition = "2021"
 [dependencies]
 tokio = {workspace = true}
 server-value = {workspace = true}
-
-[dev-dependencies]
-server = {workspace = true}
-ctor = "0.2.8"
-lazy_static = "1.4.0"
