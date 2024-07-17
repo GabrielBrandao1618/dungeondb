@@ -9,13 +9,15 @@ edition = "2021"
 
 [workspace]
 members = [
-  "packages/chest", "packages/cli",
+  "packages/chest",
+  "packages/cli",
   "packages/client",
   "packages/errors",
   "packages/grimoire",
   "packages/query",
   "packages/runner",
-  "packages/server"
+  "packages/server",
+  "packages/server-value"
 ]
 
 [workspace.dependencies]
@@ -27,3 +29,4 @@ runner = {path = "packages/runner"}
 server = {path = "packages/server"}
 client = {path = "packages/client"}
 tokio = { version = "1.37.0", features = ["full"] }
+server-value = {path = "packages/server-value"}
