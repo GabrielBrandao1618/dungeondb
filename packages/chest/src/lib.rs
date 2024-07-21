@@ -49,11 +49,11 @@ impl Chest {
             std::fs::create_dir_all(&dir_path)
                 .map_err(|_| DungeonError::new("Could not create chest dir"))?;
         }
-        for file in dir_path
-            .read_dir()
-            .map_err(|_| DungeonError::new("Could not read directory"))?
-        {
-            let ok_file = file.map_err(|_| DungeonError::new("Could not handle file"))?;
+        let dir_files =
+            std::fs::read_dir(&dir_path).map_err(|_| DungeonError::new("Could not read files"))?;
+
+        for file in dir_files {
+            let ok_file = file.map_err(|_| DungeonError::new("Invalid file"))?;
             let file_path = ok_file.path();
             match file_path.extension() {
                 Some(ok_path) => {

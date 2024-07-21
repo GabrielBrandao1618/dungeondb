@@ -164,8 +164,9 @@ impl SSTable {
         Ok(current_offset)
     }
     pub fn from_file(base_dir: PathBuf, file_name: String) -> DungeonResult<Self> {
+        let result_index = Index::from_file(base_dir.join(format!("{}.index", file_name)))?;
         Ok(Self {
-            index: Index::from_file(base_dir.join(format!("{}.index", file_name)))?,
+            index: result_index,
             base_dir,
             file_name,
         })

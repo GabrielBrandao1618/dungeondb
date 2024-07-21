@@ -16,14 +16,12 @@ use server_value::{ServerError, ServerResponse};
 
 pub struct Server {
     chest: Arc<Mutex<Chest>>,
-    shutdown: bool,
 }
 
 impl Server {
     pub fn new(chest: Chest) -> Self {
         Self {
             chest: Arc::new(Mutex::new(chest)),
-            shutdown: false,
         }
     }
     pub async fn start<A: ToSocketAddrs>(&mut self, addr: A) -> io::Result<()> {
@@ -32,7 +30,7 @@ impl Server {
         Ok(())
     }
     async fn listen(&mut self, socket: TcpListener) -> io::Result<()> {
-        while !self.shutdown {
+        loop {
             let (stream, _) = socket.accept().await?;
             let chest = self.chest.clone();
             let _: JoinHandle<io::Result<()>> = tokio::spawn(async move {
@@ -40,10 +38,6 @@ impl Server {
                 Ok(())
             });
         }
-        Ok(())
-    }
-    pub async fn shutdown(&mut self) {
-        self.shutdown = true;
     }
 }
 
@@ -86,6 +80,8 @@ impl Default for Server {
 
 impl Drop for Server {
     fn drop(&mut self) {
-        let _ = self.shutdown();
+        let chest_clone = self.chest.clone();
+        let replaced = std::mem::replace(&mut self.chest, chest_clone);
+        drop(replaced);
     }
 }
