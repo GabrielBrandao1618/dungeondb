@@ -7,6 +7,7 @@ use chest::{filter::bloom::BloomFilter, Chest};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::{TcpListener, TcpStream, ToSocketAddrs},
+    signal,
     sync::Mutex,
     task::JoinHandle,
 };
@@ -16,23 +17,47 @@ use server_value::{ServerError, ServerResponse};
 
 pub struct Server {
     chest: Arc<Mutex<Chest>>,
+    shutdown: Arc<Mutex<bool>>,
 }
 
 impl Server {
     pub fn new(chest: Chest) -> Self {
         Self {
             chest: Arc::new(Mutex::new(chest)),
+            shutdown: Arc::new(Mutex::new(false)),
         }
     }
     pub async fn start<A: ToSocketAddrs>(&mut self, addr: A) -> io::Result<()> {
+        let clone_shutdown = self.shutdown.clone();
+        let shutdown_handle = tokio::spawn(async move {
+            let _ = signal::ctrl_c().await;
+            let mut shutdown_lock = clone_shutdown.lock().await;
+            *shutdown_lock = true;
+        });
         let socket = TcpListener::bind(addr).await?;
-        let _ = self.listen(socket).await;
+        let clone_chest = self.chest.clone();
+        let clone_shutdown = self.shutdown.clone();
+        tokio::spawn(async move {
+            let _ = Self::listen(clone_chest, socket, clone_shutdown).await;
+        });
+
+        let _ = tokio::join!(shutdown_handle);
+
         Ok(())
     }
-    async fn listen(&mut self, socket: TcpListener) -> io::Result<()> {
+    async fn listen(
+        chest: Arc<Mutex<Chest>>,
+        socket: TcpListener,
+        shutdown: Arc<Mutex<bool>>,
+    ) -> io::Result<()> {
         loop {
+            let shutdown_lock = shutdown.lock().await;
+            if *shutdown_lock {
+                return Ok(());
+            }
+            drop(shutdown_lock);
             let (stream, _) = socket.accept().await?;
-            let chest = self.chest.clone();
+            let chest = chest.clone();
             let _: JoinHandle<io::Result<()>> = tokio::spawn(async move {
                 handle_connection(stream, chest).await?;
                 Ok(())
