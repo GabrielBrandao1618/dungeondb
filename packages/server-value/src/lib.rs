@@ -38,6 +38,7 @@ impl std::fmt::Display for ServerResponse {
                 Value::String(v) => write!(f, "{v}"),
                 Value::Boolean(v) => write!(f, "{v}"),
                 Value::Invalid => write!(f, "invalid"),
+                Value::Null => write!(f, "null"),
             },
             ServerResponse::Err(err) => std::fmt::Display::fmt(&err, f),
         }

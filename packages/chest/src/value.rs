@@ -8,6 +8,7 @@ pub enum Value {
     Float(f64),
     String(String),
     Boolean(bool),
+    Null,
     Invalid,
 }
 

@@ -7,6 +7,6 @@ pub fn value_from_query(lit: Literal) -> Value {
         Literal::Integer(v) => Value::Integer(v),
         Literal::Float(v) => Value::Float(v),
         Literal::Boolean(v) => Value::Boolean(v),
-        Literal::Null => Value::Invalid,
+        Literal::Null => Value::Null,
     }
 }
