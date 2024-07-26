@@ -5,6 +5,7 @@ use query::ast::{DeleteStmt, LocatedElement, SetStmt, Statement};
 use crate::{
     expression::parse_expression,
     parser::{GrimoireParser, Rule},
+    utils::get_location_from_ast,
 };
 
 pub fn parse_statement(input: &str) -> DungeonResult<Statement> {
@@ -16,15 +17,19 @@ pub fn parse_statement(input: &str) -> DungeonResult<Statement> {
         .into_inner()
         .next()
         .ok_or(DungeonError::new("Could not parse statetent"))?;
+    let location = get_location_from_ast(&inner_ast);
     match inner_ast.as_rule() {
         Rule::delete_stmt => {
             let ast_key = inner_ast
                 .into_inner()
                 .next()
                 .ok_or(DungeonError::new("Could not parse delete statement"))?;
-            Ok(Statement::Delete(LocatedElement::from_value(DeleteStmt {
-                key: ast_key.as_str().to_owned(),
-            })))
+            Ok(Statement::Delete(LocatedElement::new(
+                DeleteStmt {
+                    key: ast_key.as_str().to_owned(),
+                },
+                location,
+            )))
         }
         Rule::set_stmt => {
             let mut inner_stmt = inner_ast.into_inner();
@@ -38,10 +43,13 @@ pub fn parse_statement(input: &str) -> DungeonResult<Statement> {
             let parsed_key = ast_key.as_str().to_owned();
             let parsed_value = parse_expression(ast_val.as_str())?;
 
-            Ok(Statement::Set(LocatedElement::from_value(SetStmt {
-                key: parsed_key,
-                value: parsed_value,
-            })))
+            Ok(Statement::Set(LocatedElement::new(
+                SetStmt {
+                    key: parsed_key,
+                    value: parsed_value,
+                },
+                location,
+            )))
         }
         Rule::expression => {
             let parsed = parse_expression(inner_ast.as_str())?;
@@ -53,10 +61,7 @@ pub fn parse_statement(input: &str) -> DungeonResult<Statement> {
 
 #[cfg(test)]
 mod tests {
-    use query::{
-        ast::{DeleteStmt, Expression, Literal, LocatedElement, SetStmt, Statement},
-        location::Location,
-    };
+    use query::ast::{DeleteStmt, Expression, Literal, LocatedElement, SetStmt, Statement};
 
     use super::parse_statement;
 
@@ -73,7 +78,7 @@ mod tests {
                         (0, 1).into()
                     )))
                 },
-                Location::default()
+                (0, 11).into()
             ))
         );
     }
@@ -82,9 +87,12 @@ mod tests {
         let parsed = parse_statement("delete count").unwrap();
         assert_eq!(
             parsed,
-            Statement::Delete(LocatedElement::from_value(DeleteStmt {
-                key: "count".to_owned()
-            }))
+            Statement::Delete(LocatedElement::new(
+                DeleteStmt {
+                    key: "count".to_owned()
+                },
+                (0, 12).into()
+            ))
         );
     }
 }

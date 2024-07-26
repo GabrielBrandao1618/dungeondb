@@ -5,6 +5,7 @@ use query::ast::{Expression, GetExpr, LocatedElement};
 use crate::{
     literal::parse_literal,
     parser::{GrimoireParser, Rule},
+    utils::get_location_from_ast,
 };
 
 pub fn parse_expression(input: &str) -> DungeonResult<Expression> {
@@ -12,6 +13,8 @@ pub fn parse_expression(input: &str) -> DungeonResult<Expression> {
         .map_err(|_| DungeonError::new("Could not parse expression"))?
         .next()
         .ok_or(DungeonError::new("Could not parse expression"))?;
+
+    let location = get_location_from_ast(&ast);
     let inner_value = ast
         .into_inner()
         .next()
@@ -23,9 +26,12 @@ pub fn parse_expression(input: &str) -> DungeonResult<Expression> {
                 .into_inner()
                 .next()
                 .ok_or(DungeonError::new("Could not parse get expression"))?;
-            Ok(Expression::Get(LocatedElement::from_value(GetExpr {
-                key: ast_key.as_str().to_owned(),
-            })))
+            Ok(Expression::Get(LocatedElement::new(
+                GetExpr {
+                    key: ast_key.as_str().to_owned(),
+                },
+                location,
+            )))
         }
         _ => unreachable!(),
     }
@@ -50,9 +56,12 @@ mod tests {
         let parsed = parse_expression("get name").unwrap();
         assert_eq!(
             parsed,
-            Expression::Get(LocatedElement::from_value(GetExpr {
-                key: "name".to_owned()
-            }))
+            Expression::Get(LocatedElement::new(
+                GetExpr {
+                    key: "name".to_owned()
+                },
+                (0, 8).into()
+            ))
         );
     }
 }
