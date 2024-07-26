@@ -1,6 +1,6 @@
 use errors::{DungeonError, DungeonResult};
 use pest::Parser;
-use query::ast::{DeleteStmt, SetStmt, Statement};
+use query::ast::{DeleteStmt, LocatedElement, SetStmt, Statement};
 
 use crate::{
     expression::parse_expression,
@@ -22,9 +22,9 @@ pub fn parse_statement(input: &str) -> DungeonResult<Statement> {
                 .into_inner()
                 .next()
                 .ok_or(DungeonError::new("Could not parse delete statement"))?;
-            Ok(Statement::Delete(DeleteStmt {
+            Ok(Statement::Delete(LocatedElement::from_value(DeleteStmt {
                 key: ast_key.as_str().to_owned(),
-            }))
+            })))
         }
         Rule::set_stmt => {
             let mut inner_stmt = inner_ast.into_inner();
@@ -38,10 +38,10 @@ pub fn parse_statement(input: &str) -> DungeonResult<Statement> {
             let parsed_key = ast_key.as_str().to_owned();
             let parsed_value = parse_expression(ast_val.as_str())?;
 
-            Ok(Statement::Set(SetStmt {
+            Ok(Statement::Set(LocatedElement::from_value(SetStmt {
                 key: parsed_key,
                 value: parsed_value,
-            }))
+            })))
         }
         Rule::expression => {
             let parsed = parse_expression(inner_ast.as_str())?;
@@ -53,7 +53,10 @@ pub fn parse_statement(input: &str) -> DungeonResult<Statement> {
 
 #[cfg(test)]
 mod tests {
-    use query::ast::{DeleteStmt, Expression, Literal, SetStmt, Statement};
+    use query::{
+        ast::{DeleteStmt, Expression, Literal, LocatedElement, SetStmt, Statement},
+        location::Location,
+    };
 
     use super::parse_statement;
 
@@ -62,10 +65,13 @@ mod tests {
         let parsed = parse_statement("set count 1").unwrap();
         assert_eq!(
             parsed,
-            Statement::Set(SetStmt {
+            Statement::Set(LocatedElement::from_value(SetStmt {
                 key: "count".to_owned(),
-                value: Expression::Literal(Literal::Integer(1))
-            })
+                value: Expression::Literal(Literal::Integer(LocatedElement::new(
+                    1,
+                    Location::default()
+                )))
+            }))
         );
     }
     #[test]
@@ -73,9 +79,9 @@ mod tests {
         let parsed = parse_statement("delete count").unwrap();
         assert_eq!(
             parsed,
-            Statement::Delete(DeleteStmt {
+            Statement::Delete(LocatedElement::from_value(DeleteStmt {
                 key: "count".to_owned()
-            })
+            }))
         );
     }
 }

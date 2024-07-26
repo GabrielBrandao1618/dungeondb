@@ -1,21 +1,40 @@
 use std::fmt::Display;
 
+use crate::location::Location;
+
+#[derive(Debug, PartialEq)]
+pub struct LocatedElement<T> {
+    pub val: T,
+    pub location: Location,
+}
+impl<T> LocatedElement<T> {
+    pub fn new(val: T, location: Location) -> Self {
+        Self { val, location }
+    }
+    pub fn from_value(val: T) -> Self {
+        Self {
+            val,
+            location: Location::default(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Literal {
-    String(String),
-    Integer(i64),
-    Float(f64),
-    Boolean(bool),
-    Null,
+    String(LocatedElement<String>),
+    Integer(LocatedElement<i64>),
+    Float(LocatedElement<f64>),
+    Boolean(LocatedElement<bool>),
+    Null(LocatedElement<()>),
 }
 impl Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Literal::String(val) => write!(f, "{val}"),
-            Literal::Integer(val) => write!(f, "{val}"),
-            Literal::Float(val) => write!(f, "{val}"),
-            Literal::Boolean(val) => write!(f, "{val}"),
-            Literal::Null => write!(f, "null"),
+            Literal::String(val) => write!(f, "{}", val.val),
+            Literal::Integer(val) => write!(f, "{}", val.val),
+            Literal::Float(val) => write!(f, "{}", val.val),
+            Literal::Boolean(val) => write!(f, "{}", val.val),
+            Literal::Null(_) => write!(f, "null"),
         }
     }
 }
@@ -26,7 +45,7 @@ pub struct GetExpr {
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Literal(Literal),
-    Get(GetExpr),
+    Get(LocatedElement<GetExpr>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -42,6 +61,6 @@ pub struct DeleteStmt {
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Expr(Expression),
-    Set(SetStmt),
-    Delete(DeleteStmt),
+    Set(LocatedElement<SetStmt>),
+    Delete(LocatedElement<DeleteStmt>),
 }

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use cuid::cuid2;
 
 use chest::filter::bloom::BloomFilter;
-use query::ast::{DeleteStmt, Expression, GetExpr, Literal, SetStmt};
+use query::ast::{DeleteStmt, Expression, GetExpr, Literal, LocatedElement, SetStmt};
 
 use super::*;
 
@@ -34,7 +34,9 @@ fn test_eval_literal() {
     .unwrap();
     let result = run_query(
         &mut chest,
-        Statement::Expr(Expression::Literal(Literal::Integer(1))),
+        Statement::Expr(Expression::Literal(Literal::Integer(
+            LocatedElement::from_value(1),
+        ))),
     )
     .unwrap();
     assert_eq!(result, Value::Integer(1));
@@ -52,17 +54,17 @@ fn test_insert_value() {
     .unwrap();
     run_query(
         &mut chest,
-        Statement::Set(SetStmt {
+        Statement::Set(LocatedElement::from_value(SetStmt {
             key: "count".to_owned(),
-            value: Expression::Literal(Literal::Integer(1)),
-        }),
+            value: Expression::Literal(Literal::Integer(LocatedElement::from_value(1))),
+        })),
     )
     .unwrap();
     let found = run_query(
         &mut chest,
-        Statement::Expr(Expression::Get(GetExpr {
+        Statement::Expr(Expression::Get(LocatedElement::from_value(GetExpr {
             key: "count".to_owned(),
-        })),
+        }))),
     )
     .unwrap();
     assert_eq!(found, Value::Integer(1));
@@ -80,33 +82,33 @@ fn test_delete_value() {
     .unwrap();
     run_query(
         &mut chest,
-        Statement::Set(SetStmt {
+        Statement::Set(LocatedElement::from_value(SetStmt {
             key: "count".to_owned(),
-            value: Expression::Literal(Literal::Integer(0)),
-        }),
+            value: Expression::Literal(Literal::Integer(LocatedElement::from_value(0))),
+        })),
     )
     .unwrap();
     let found = run_query(
         &mut chest,
-        Statement::Expr(Expression::Get(GetExpr {
+        Statement::Expr(Expression::Get(LocatedElement::from_value(GetExpr {
             key: "count".to_owned(),
-        })),
+        }))),
     )
     .unwrap();
     assert_eq!(found, Value::Integer(0));
     run_query(
         &mut chest,
-        Statement::Delete(DeleteStmt {
+        Statement::Delete(LocatedElement::from_value(DeleteStmt {
             key: "count".to_owned(),
-        }),
+        })),
     )
     .unwrap();
 
     let found = run_query(
         &mut chest,
-        Statement::Expr(Expression::Get(GetExpr {
+        Statement::Expr(Expression::Get(LocatedElement::from_value(GetExpr {
             key: "count".to_owned(),
-        })),
+        }))),
     )
     .unwrap();
     assert_eq!(found, Value::Null);

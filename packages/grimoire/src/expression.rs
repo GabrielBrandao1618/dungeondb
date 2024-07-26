@@ -1,6 +1,6 @@
 use errors::{DungeonError, DungeonResult};
 use pest::Parser;
-use query::ast::{Expression, GetExpr};
+use query::ast::{Expression, GetExpr, LocatedElement};
 
 use crate::{
     literal::parse_literal,
@@ -23,9 +23,9 @@ pub fn parse_expression(input: &str) -> DungeonResult<Expression> {
                 .into_inner()
                 .next()
                 .ok_or(DungeonError::new("Could not parse get expression"))?;
-            Ok(Expression::Get(GetExpr {
+            Ok(Expression::Get(LocatedElement::from_value(GetExpr {
                 key: ast_key.as_str().to_owned(),
-            }))
+            })))
         }
         _ => unreachable!(),
     }
@@ -33,23 +33,26 @@ pub fn parse_expression(input: &str) -> DungeonResult<Expression> {
 
 #[cfg(test)]
 mod tests {
-    use query::ast::{Expression, GetExpr, Literal};
+    use query::ast::{Expression, GetExpr, Literal, LocatedElement};
 
     use super::parse_expression;
 
     #[test]
     fn test_parse_literal() {
         let parsed = parse_expression("1").unwrap();
-        assert_eq!(parsed, Expression::Literal(Literal::Integer(1)));
+        assert_eq!(
+            parsed,
+            Expression::Literal(Literal::Integer(LocatedElement::from_value(1)))
+        );
     }
     #[test]
     fn test_parse_get_expr() {
         let parsed = parse_expression("get name").unwrap();
         assert_eq!(
             parsed,
-            Expression::Get(GetExpr {
+            Expression::Get(LocatedElement::from_value(GetExpr {
                 key: "name".to_owned()
-            })
+            }))
         );
     }
 }

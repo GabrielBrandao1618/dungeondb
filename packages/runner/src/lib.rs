@@ -17,17 +17,17 @@ pub fn run_query(chest: &mut Chest, query: Statement) -> DungeonResult<Value> {
         Statement::Expr(expr) => match expr {
             query::ast::Expression::Literal(lit) => Ok(value_from_query(lit)),
             query::ast::Expression::Get(expr) => {
-                let found = chest.get(&expr.key)?.map_or(Value::Null, |v| v.value);
+                let found = chest.get(&expr.val.key)?.map_or(Value::Null, |v| v.value);
                 Ok(found)
             }
         },
         Statement::Set(stmt) => {
-            let value = run_query(chest, Statement::Expr(stmt.value))?;
-            chest.set(&stmt.key, TimeStampedValue::new(value))?;
+            let value = run_query(chest, Statement::Expr(stmt.val.value))?;
+            chest.set(&stmt.val.key, TimeStampedValue::new(value))?;
             Ok(Value::Null)
         }
         Statement::Delete(stmt) => {
-            chest.delete(&stmt.key)?;
+            chest.delete(&stmt.val.key)?;
             Ok(Value::Null)
         }
     }
