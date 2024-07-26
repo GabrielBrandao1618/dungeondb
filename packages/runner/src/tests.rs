@@ -109,5 +109,5 @@ fn test_delete_value() {
         })),
     )
     .unwrap();
-    assert_eq!(found, Value::Invalid);
+    assert_eq!(found, Value::Null);
 }
