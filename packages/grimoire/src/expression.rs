@@ -42,7 +42,7 @@ mod tests {
         let parsed = parse_expression("1").unwrap();
         assert_eq!(
             parsed,
-            Expression::Literal(Literal::Integer(LocatedElement::from_value(1)))
+            Expression::Literal(Literal::Integer(LocatedElement::new(1, (0, 1).into())))
         );
     }
     #[test]

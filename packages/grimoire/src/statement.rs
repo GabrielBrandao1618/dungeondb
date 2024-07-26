@@ -65,13 +65,16 @@ mod tests {
         let parsed = parse_statement("set count 1").unwrap();
         assert_eq!(
             parsed,
-            Statement::Set(LocatedElement::from_value(SetStmt {
-                key: "count".to_owned(),
-                value: Expression::Literal(Literal::Integer(LocatedElement::new(
-                    1,
-                    Location::default()
-                )))
-            }))
+            Statement::Set(LocatedElement::new(
+                SetStmt {
+                    key: "count".to_owned(),
+                    value: Expression::Literal(Literal::Integer(LocatedElement::new(
+                        1,
+                        (0, 1).into()
+                    )))
+                },
+                Location::default()
+            ))
         );
     }
     #[test]
