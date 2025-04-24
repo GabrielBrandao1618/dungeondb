@@ -68,7 +68,7 @@ pub struct SSTable {
 }
 
 impl SSTable {
-    /// This method creates a SStable and index file using in the provided base_dir using the provided
+    /// This method creates a SStable and an index file in the provided base_dir using the provided
     /// file_name and returns the resulting sstable
     /// Every key-value pair is a DungeonResult because the values could be comming from a file
     pub fn new(
