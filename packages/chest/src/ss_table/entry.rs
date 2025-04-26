@@ -44,6 +44,12 @@ impl Entry {
         if value_len > VALUE_LEN_SECTION_MAX_SIZE {
             return Err(EntryError::ErrCreateEntry);
         }
+        if non_shared_len != key.len() {
+            return Err(EntryError::ErrCreateEntry);
+        }
+        if value_len != value.len() {
+            return Err(EntryError::ErrCreateEntry);
+        }
         Ok(Entry {
             shared_len,
             non_shared_len,
@@ -139,5 +145,13 @@ mod tests {
         assert!(ok_entry3.is_ok());
         let entry3 = Entry::new(2, 3, 256, "lle".to_string(), "x".repeat(256));
         assert!(entry3.is_err());
+    }
+    #[test]
+    fn test_mismatch_sections_length() {
+        let entry1 = Entry::new(2, 2, 2, "app".to_string(), "ap".to_string());
+        assert!(entry1.is_err());
+
+        let entry2 = Entry::new(2, 2, 2, "ap".to_string(), "app".to_string());
+        assert!(entry2.is_err());
     }
 }
