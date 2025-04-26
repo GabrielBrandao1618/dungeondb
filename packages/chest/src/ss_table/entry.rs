@@ -1,5 +1,17 @@
 use std::{error::Error, num::ParseIntError, str::Chars};
 
+const ENTRY_ENCODING_NUMERICAL_BASE: usize = 16;
+const SHARED_LEN_SECTION_LENGTH: usize = 2;
+const NON_SHARED_LEN_SECTION_LENGTH: usize = 2;
+const VALUE_LEN_SECTION_LENGTH: usize = 2;
+
+const SHARED_LEN_SECTION_MAX_SIZE: usize =
+    ENTRY_ENCODING_NUMERICAL_BASE.pow(SHARED_LEN_SECTION_LENGTH as u32) - 1;
+const NON_SHARED_LEN_SECTION_MAX_SIZE: usize =
+    ENTRY_ENCODING_NUMERICAL_BASE.pow(NON_SHARED_LEN_SECTION_LENGTH as u32) - 1;
+const VALUE_LEN_SECTION_MAX_SIZE: usize =
+    ENTRY_ENCODING_NUMERICAL_BASE.pow(VALUE_LEN_SECTION_LENGTH as u32) - 1;
+
 #[derive(Debug)]
 enum EntryError {
     ErrDecodeEntry,
@@ -23,6 +35,15 @@ impl Entry {
         key: String,
         value: String,
     ) -> Result<Entry, EntryError> {
+        if shared_len > SHARED_LEN_SECTION_MAX_SIZE {
+            return Err(EntryError::ErrCreateEntry);
+        }
+        if non_shared_len > NON_SHARED_LEN_SECTION_MAX_SIZE {
+            return Err(EntryError::ErrCreateEntry);
+        }
+        if value_len > VALUE_LEN_SECTION_MAX_SIZE {
+            return Err(EntryError::ErrCreateEntry);
+        }
         Ok(Entry {
             shared_len,
             non_shared_len,
@@ -72,6 +93,7 @@ impl Entry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_encode() {
         // Lets say the previous entry was "app"
@@ -99,5 +121,23 @@ mod tests {
         let decoded = Entry::decode(encoded.chars()).unwrap();
 
         assert_eq!(entry, decoded)
+    }
+
+    #[test]
+    fn test_create_with_overflow() {
+        let ok_entry1 = Entry::new(255, 3, 4, "lle".to_string(), "good".to_string());
+        assert!(ok_entry1.is_ok());
+        let entry1 = Entry::new(256, 3, 4, "lle".to_string(), "good".to_string());
+        assert!(entry1.is_err());
+
+        let ok_entry2 = Entry::new(2, 255, 4, "x".repeat(255), "good".to_string());
+        assert!(ok_entry2.is_ok());
+        let entry2 = Entry::new(2, 256, 4, "x".repeat(256), "good".to_string());
+        assert!(entry2.is_err());
+
+        let ok_entry3 = Entry::new(2, 3, 255, "lle".to_string(), "x".repeat(255));
+        assert!(ok_entry3.is_ok());
+        let entry3 = Entry::new(2, 3, 256, "lle".to_string(), "x".repeat(256));
+        assert!(entry3.is_err());
     }
 }
