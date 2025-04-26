@@ -1,3 +1,4 @@
+mod entry;
 pub mod index;
 
 use std::{
