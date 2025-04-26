@@ -1,3 +1,6 @@
+use std::{num::ParseIntError, str::Chars};
+
+#[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Entry {
     shared_len: usize,
     non_shared_len: usize,
@@ -34,6 +37,27 @@ impl Entry {
             value_len = self.value_len,
         )
     }
+    pub fn decode(mut content: Chars) -> Result<Self, ParseIntError> {
+        let shared_len_bytes: String = content.by_ref().take(2).collect();
+        let shared_len = usize::from_str_radix(&shared_len_bytes, 16)?;
+
+        let non_shared_len_bytes: String = content.by_ref().take(2).collect();
+        let non_shared_len = usize::from_str_radix(&non_shared_len_bytes, 16)?;
+
+        let value_len_bytes: String = content.by_ref().take(2).collect();
+        let value_len = usize::from_str_radix(&value_len_bytes, 16)?;
+
+        let key: String = content.by_ref().take(non_shared_len).collect();
+        let value: String = content.by_ref().take(value_len).collect();
+
+        Ok(Self {
+            shared_len,
+            non_shared_len,
+            value_len,
+            key,
+            value,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -56,5 +80,14 @@ mod tests {
             "goooooooooooood".to_string(),
         );
         assert_eq!(entry2.encode(), "100f0flllllllllllllllgoooooooooooood");
+    }
+    #[test]
+    fn test_decode() {
+        let entry = Entry::new(2, 3, 4, "lle".to_string(), "good".to_string());
+
+        let encoded = entry.encode();
+        let decoded = Entry::decode(encoded.chars()).unwrap();
+
+        assert_eq!(entry, decoded)
     }
 }
