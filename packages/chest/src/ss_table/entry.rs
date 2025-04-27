@@ -61,6 +61,7 @@ impl Entry {
     /// Entry layoyt: `[shared_len:2][non_shared_len:2][value_len:2][key][value]`
     /// Each :i is the amount of bytes the section takes
     pub fn encode(&self) -> String {
+        // TODO: use the contants lengths instead of hardcoding them into the string
         format!(
             "{shared_len:02x}{non_shared_len:02x}{value_len:02x}{key}{value}",
             key = self.key,

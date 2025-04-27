@@ -1,3 +1,4 @@
+mod block;
 mod entry;
 pub mod index;
 
