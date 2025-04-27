@@ -1,4 +1,4 @@
-use std::{error::Error, num::ParseIntError, str::Chars};
+use std::str::Chars;
 
 const ENTRY_ENCODING_NUMERICAL_BASE: usize = 16;
 const SHARED_LEN_SECTION_LENGTH: usize = 2;
@@ -13,9 +13,13 @@ const VALUE_LEN_SECTION_MAX_SIZE: usize =
     ENTRY_ENCODING_NUMERICAL_BASE.pow(VALUE_LEN_SECTION_LENGTH as u32) - 1;
 
 #[derive(Debug)]
-enum EntryError {
-    ErrDecodeEntry,
-    ErrCreateEntry,
+pub enum EntryError {
+    Decode,
+    Create,
+    ValueLenOverTheBound,
+    KeyLenOverTheBound,
+    ValueMismatchLen,
+    KeyMismatchLen,
 }
 
 #[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
@@ -36,19 +40,19 @@ impl Entry {
         value: String,
     ) -> Result<Entry, EntryError> {
         if shared_len > SHARED_LEN_SECTION_MAX_SIZE {
-            return Err(EntryError::ErrCreateEntry);
+            return Err(EntryError::KeyLenOverTheBound);
         }
         if non_shared_len > NON_SHARED_LEN_SECTION_MAX_SIZE {
-            return Err(EntryError::ErrCreateEntry);
+            return Err(EntryError::KeyLenOverTheBound);
         }
         if value_len > VALUE_LEN_SECTION_MAX_SIZE {
-            return Err(EntryError::ErrCreateEntry);
+            return Err(EntryError::ValueLenOverTheBound);
         }
         if non_shared_len != key.len() {
-            return Err(EntryError::ErrCreateEntry);
+            return Err(EntryError::KeyMismatchLen);
         }
         if value_len != value.len() {
-            return Err(EntryError::ErrCreateEntry);
+            return Err(EntryError::ValueMismatchLen);
         }
         Ok(Entry {
             shared_len,
@@ -74,15 +78,15 @@ impl Entry {
     pub fn decode(mut content: Chars) -> Result<Self, EntryError> {
         let shared_len_bytes: String = content.by_ref().take(2).collect();
         let shared_len =
-            usize::from_str_radix(&shared_len_bytes, 16).map_err(|_| EntryError::ErrDecodeEntry)?;
+            usize::from_str_radix(&shared_len_bytes, 16).map_err(|_| EntryError::Decode)?;
 
         let non_shared_len_bytes: String = content.by_ref().take(2).collect();
-        let non_shared_len = usize::from_str_radix(&non_shared_len_bytes, 16)
-            .map_err(|_| EntryError::ErrDecodeEntry)?;
+        let non_shared_len =
+            usize::from_str_radix(&non_shared_len_bytes, 16).map_err(|_| EntryError::Decode)?;
 
         let value_len_bytes: String = content.by_ref().take(2).collect();
         let value_len =
-            usize::from_str_radix(&value_len_bytes, 16).map_err(|_| EntryError::ErrDecodeEntry)?;
+            usize::from_str_radix(&value_len_bytes, 16).map_err(|_| EntryError::Decode)?;
 
         let key: String = content.by_ref().take(non_shared_len).collect();
         let value: String = content.by_ref().take(value_len).collect();
